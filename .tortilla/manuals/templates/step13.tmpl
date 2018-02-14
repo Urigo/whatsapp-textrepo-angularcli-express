@@ -1,0 +1,29 @@
+## Client
+
+Now let's start our client in production mode:
+
+    $ ng serve --prod
+
+Now open the Chrome Developers Tools and, in the Network tab, select 'Slow 3G Network' and 'Disable cache'.
+Now refresh the page and look at the DOMContentLoaded time and at the transferred size. You'll notice that our bundle size is quite small and so the loads time.
+Now let's click on a specific chat. It will take some time to load the data. Now let's add a new message. Once again it will take some time to load the data. We could also create a new chat and the result would be the same. The whole app doesn't
+feel as snappier as the real Whatsapp on a slow 3G Network.
+"That's normal, it's a web application with a remote db while Whatsapp is a native app with a local database..."
+That's just an excuse, because we can do as good as Whatsapp thanks to Apollo!
+
+Let's install `moment`, we will soon need it:
+
+    $ npm install moment
+
+Let's start by making our UI optimistic. We can predict most of the response we will get from our server, except for a few things like `id` of newly created messages. But since we don't really need that id, we can simply generate a fake one
+which will be later overridden once we get the response from the server:
+
+{{{ diffStep "9.1" module="client" files="^(?!package.json$).*" }}}
+
+When we open a specific chat we can also preload some data from our chats list cache while waiting for the server response. We will initially be able to show only the chat name, the last message or the last few messages and a few more informations instead of the whole content from the server, but that would be more than enough to entertain the user while waiting for the server response:
+
+{{{ diffStep "9.2" module="client" }}}
+
+Now let's deal with the most difficult part: what about chats creation? We cannot predict the `id` of the new chat and so we cannot navigate to the chat page because it contains the chat id in the url. We could simply navigate to the "optimistic" id, but then the user wouldn't be able to reach that url if he refreshes the page or bookmarks it. That's a problem we care about. How to solve it? We're going to create a landing page and we will later override the url once we get the response from the server!
+
+{{{ diffStep "9.3" module="client" }}}
