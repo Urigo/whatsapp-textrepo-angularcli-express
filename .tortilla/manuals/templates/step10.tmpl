@@ -1,0 +1,13 @@
+## Client
+
+Did you notice that after creating a new message you'll have to refresh the page in order to see it?
+How to fix that? If you thought about re-querying the server you would be wrong! The best solution is to use the response provided by the server to update our Apollo local cache.
+
+Apollo performs two important core tasks: Executing queries and mutations, and caching the results.
+
+Thanks to Apollo’s store design, it’s possible for the results of a query or mutation to update your UI in all the right places. In many cases it’s possible for that to happen automatically, whereas in others you need to help the client out a little in doing so:
+
+{{{ diffStep "6.1" module="client" }}}
+
+Now you won't need to reload the page in order to see the new message. What's even more interesting is that the message you wrote would also be shown as the last message in the chats list, just hit the back button in the top-left corner to find out!
+This is because we updated our store for both the `GetChat` and the `GetChats` query.
