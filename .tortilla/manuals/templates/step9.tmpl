@@ -1,0 +1,49 @@
+In addition to fetching data using queries, Apollo also helps you handle GraphQL mutations. In GraphQL, mutations are identical to queries in syntax, the only difference being that you use the keyword mutation instead of query to indicate that the root fields on this query are going to be performing writes to the backend.
+GraphQL mutations represent two things in one query string:
+
+1. The mutation field name with arguments, which represents the actual operation to be done on the server.
+2. The fields you want back from the result of the mutation to update the client.
+
+When we use mutations in Apollo, the result is typically integrated into the cache automatically based on the id of the result, which in turn updates the UI automatically, so we often don't need to explicitly handle the results. In order for the client to correctly do this, we need to ensure we select the necessary fields in the result. One good strategy can be to simply ask for any fields that might have been affected by the mutation. Alternatively, you can use fragments to share the fields between a query and a mutation that updates that query.
+
+## Server
+
+Finally we're going to create our mutations in the server:
+
+{{{ diffStep "3.1" module="server" }}}
+
+Let me briefly explain what's going on here.
+For each chat/group we store the `allTimeMemberIds`, `listingMemberIds` and `actualGroupMemberIds` properties in our NoSQL-like fake db.
+What's the difference between `allTimeMemberIds` and `listingMemberIds`? When a chat gets created only the user who created it will be able too see it, the chat will be displayed to the other user only once the first messaged gets sent. `allTimeMemberIds` is an array which always contain both the users, while `listingMemberIds` contains only the users which get the chat listed (initially the creator, later both users). `actualGroupMemberIds` is only used for groups.
+Groups, instead, get listed by all members immediately since the creation. So initially both `allTimeMemberIds`, `listingMemberIds` and `actualGroupMemberIds` are similar. Later users can leave the group or get deleted (so they will be removed from `actualGroupMemberIds`) but they will still be able to list the group in read-only mode, thus remaining in the `listingMemberIds`. Once they remove the group they will also be remove from the `listingMemberIds` array.
+That's why we have to check for several different conditions before adding/deleting messages: it could be necessary to add the other peer to the `listingMemberIds` (for example if we are writing the first message of a chat) or it could be necessary to physically remove the messages instead of simply removing the current user from the `holderIds`. `holderIds` is a field in each message which states which user will currently display that specific message. In fact each user can delete a specific message without affecting what the others will see. Once there will be no more users in the `holderIds` array it will be safe to delete the message.
+Each message has also a `recipients` array containing the receiving date and the viewing date of that particular message for all the other users. That's necessary to implement the single, double and blue ticks used by the real Whatsapp.
+
+It may seem a bit overwhelming at first, but you should keep in mind that the real Whatsapp has tons of features and also takes advantage of a local database to store messages, so it's easier for them to implement features like per-user messages: their source of truth is not the server because once downloaded the messages are kept in the client itself, so deleting messages doesn't affect anyone else. On the contrary our source of truth is the server, so our approach is more similar to Telegram instead. This is a better approach in my opinion because it allows us to show the messages for the same user on multiple clients, instead of having to rely on questionable approaches like Whatsapp Web.
+Also we already implemented our mutations to take care of future use cases (like reading notifications) which we still didn't implement.
+
+I said we were going to take greater advantage of `graphql-code-generator` once we started writing our first mutation and I'm going to show you why. Let's run the generator first:
+
+    yarn generator
+
+Then let's use the generated types:
+
+{{{ diffStep "3.3" module="server" }}}
+
+## Client
+
+For the client I'll only show you how to make use of the addMessage mutation in this chapters. The other mutations will require much more boilerplate so I left them for their own chapter.
+
+Let's start by wiring the addMessage mutation. We're going to write the GraphQL query and then use the generator to generate the types:
+
+{{{ diffStep "5.1" module="client" files="^(?!src/types.d.ts$).*" }}}
+
+Run the generator:
+
+    yarn generator
+
+Now let's use the just-created query:
+
+{{{ diffStep "5.2" module="client" }}}
+
+It's that simple! You would be tempted to say that it doesn't work, but you should try to refresh the page first ;)
