@@ -1,0 +1,359 @@
+## Server
+
+After the planning phase it's finally time to start writing some real code!
+We'll start with the server, so let's install a couple of packages first:
+
+    $ npm install apollo-server-express body-parser cors express graphql
+    $ npm install --save-dev @types/body-parser @types/cors @types/express @types/graphql
+
+Express is a fast, unopinionated, minimalist web framework for node.
+Cross-Origin Resource Sharing (CORS) is a mechanism that uses additional HTTP headers to let a user agent gain permission to access selected resources from a server on a different origin (domain) than the site currently in use. A user agent makes a cross-origin HTTP request when it requests a resource from a different domain, protocol, or port than the one from which the current document originated.
+We will need CORS because Webpack's development server used in the client will make use of a different port than the Express server, thus configuring a different origin.
+GraphQL is a query language for APIs and a runtime for fulfilling those queries with your existing data. GraphQL provides a complete and understandable description of the data in your API, gives clients the power to ask for exactly what they need and nothing more, makes it easier to evolve APIs over time, and enables powerful developer tools.
+Apollo Server is a community-maintained open-source GraphQL server. It works with pretty much all Node.js HTTP server frameworks. Apollo Server works with any GraphQL schema built with GraphQL.js or with a convenience library such as graphql-tools.
+
+The GraphQL query language is basically about selecting fields on objects. Because the shape of a GraphQL query closely matches the result, you can predict what the query will return without knowing that much about the server. But it's useful to have an exact description of the data we can ask for - what fields can we select? What kinds of objects might they return? What fields are available on those sub-objects? That's where the schema comes in.
+Every GraphQL service defines a set of types which completely describe the set of possible data you can query on that service. Then, when queries come in, they are validated and executed against that schema.
+
+For the moment let's create some empty schemas and resolvers:
+
+{{{ diffStep "1.1" module="server" files="schema/*" }}}
+
+Time to create our index:
+
+{{{ diffStep "1.1" module="server" files="^index.ts" }}}
+
+Now we want to feed our graphql server with some data. Soon we will need `moment`, so let's install it:
+
+    $ npm install moment
+
+Now we can create a fake db:
+
+{{{ diffStep "1.2" module="server" files="db.ts" }}}
+
+Its' finally time to create our schema and our resolvers:
+
+{{{ diffStep "1.3" module="server" }}}
+
+Out basic server is already done and working. We still have no way to do any kind of mutation, but we already set up several queries to return a list of users or chats.
+In particular we can choose if we want to return all the chats (and how many messages we want to return for each chat) or if we want to return a single chat. We can also choose which and how many properties we want to return for each query.
+We can start the server by simply running:
+
+    $ npm start
+
+## Client
+
+Now we can concentrate on the client and bootstrap it using Angular-CLI.
+First you will need to install it globally with:
+
+    $ npm install -g @angular/cli
+
+Then we can create a new project from scratch:
+
+    $ ng new client --style scss
+
+Time to install a couple of packages:
+
+    $ ng add apollo-angular
+    $ npm install --save-dev @types/graphql
+
+Apollo's Schematics sets everything for us. The only thing missing is to fill the `url`.
+
+{{{ diffStep "1.1" module="client" files="src/app/graphql.module.ts" }}}
+
+Let's take a closer look what Schematics prepared for us.
+
+First, it created `graphql.module.ts` and used `ApolloModule` and `HttpLinkModule`.
+
+- `ApolloModule` is the center of using GraphQL in your app! It includes all needed services that allows to use ApolloClient’s features.
+- `HttpLinkModule` makes it easy to fetch data in Angular.
+
+`HttpLinkModule` is optional, you can replace it with any other Link.
+Its biggest advantage of all is that it uses Angular's `HttpClient` internally so it's possible to use it in `NativeScript` or in combination with any other `HttpClient` provider. By using `HttpLinkModule` you get Server-Side Rendering for free, without any additional work.
+
+Next, we got `APOLLO_OPTIONS` provided to Angular.
+
+We're using the `InMemoryCache` cache, but there are several options like `Redux`, `Hermes` and even `ngrx`.
+
+- `apollo-cache-inmemory` is an official and recommended Apollo Cache.
+
+### Cache and Links
+
+These are two main parts of Apollo Stack, both are pluggable and customizable.
+
+- **Cache** is responsible for storing data and keeping it consistent.
+- **Links** describe how to access the source of data (usually a GraphQL endpoint).
+
+Let's take a closer look on what cache means for Apollo, we're going to base it on the official `apollo-cache-inmemory`, one of many implementations.
+
+But first, imagine, we write our own amazing Apollo Cache implementation.
+
+```graphql
+query getMessages {
+  messages {
+    id
+    content
+    likes
+  }
+}
+```
+
+When we execute a query like one above what we get in return is an array of all messages of logged in user:
+
+```json
+{
+  "data": {
+    "messages": [
+      {
+        "id": 0,
+        "content": "Hi",
+        "likes": 0
+      },
+      {
+        "id": 1,
+        "content": "Hello",
+        "likes": 0
+      }
+    ]
+  }
+}
+```
+
+Our cache stores the result in exact shape as above.
+
+Later on we add more queries and one of them returns a list of messages from one conversation.
+
+Now, a short story. We've got two users, Niccolo and Dotan.
+
+1. Niccolo opens the app and Apollo fetches all of his messages (I know, it's stupid but stay with me)
+1. One message is to Dotan, Niccolo said "Hi" to him.
+1. Now Dotan opens the app and reacts to the message with a like.
+1. After few minutes Niccolo asks for messages from a conversation with Dotan.
+1. Apollo fetches those messages and there is one in which Niccolo says "Hi" and it's liked by Dotan.
+1. Now we have the same message twice, one has different state that the other, in one place there is no like, in other, we have +1.
+
+As you see, our cache is not smart enough to figure out one query might be a subset of another.
+That's because it doesn't get enough informations.
+
+Let's go back to InMemoryCache and see how it describes itself:
+
+> Thanks to InMemoryCache, it's possible for the results of a query or mutation to update the UI in all the right places. In many cases it's possible for that to happen automatically, whereas in others you need to help the client out a little in doing so.
+
+It means it could solve the issue we have with duplicated messages with different state.
+
+It's very important to understand one concept that InMemoryCache is heavily based on, it's called normalization.
+
+The InMemoryCache splits the result into individual objects, creates a unique identifier for each of them and flattens everything up before saving it to the store.
+Might seem complicated at first, but as InMemoryCache, let's break everything into smaller parts.
+
+First, "breaking the result into pieces" part. The InMemoryCache tells ApolloClient to add `__typename` field to your query before passing it to the server. I used server for simplicity, it actually passes it to Apollo Links and they are responsible to make a HTTP request. Every Apollo Cache is able to transform a document, that's as a side note.
+
+```graphql
+query getMessages {
+  messages {
+    id
+    content
+    likes
+    __typename
+  }
+}
+```
+
+The `__typename` field tells about the type of the object. It's compatible with every GraphQL server as it's part of the specification.
+
+```graphql
+type Message {
+  id: ID
+  content: String
+  likes: Int
+}
+
+type Query {
+  messages: [Message]
+}
+```
+
+In our case, `__typename` returns `Message`. So now InMemoryCache knows that a message is a Message. Computers are stupid, we have to tell them everything!
+
+Next, let's take a look at "creates a unique identifier" part.
+
+The InMemoryCache iterates through every object and looks for the `__typename` and two fields, `id` and `_id` that usually are used as identifiers. Taking our example, it turns every Message object into `Message:1`, `Message:2`, `Message:3` and so on. You get the idea.
+
+It's the default behaviour but you can change it as you wish:
+
+```typescript
+const cache = new InMemoryCache({
+  dataIdFromObject(result) {
+    if (result.__typename) {
+      const id = result.uid || result.id || result._id;
+
+      if (id !== undefined) {
+        return `${result.__typename}:${id}`;
+      }
+    }
+    return null;
+  },
+});
+```
+
+Great, we covered two out of three things InMemoryCache does. Now we're going to explore "flattens everything up".
+
+We're able to understand the type of each individual object and it's unique identifier. It still has to be stored.
+
+What InMemoryCache does is it's saves every element on root level in a plain object where the key contains a unique identifier and the value has a body.
+
+```json
+{
+  "Message:1": {
+    "id": 1,
+    "content": "Hi",
+    "likes": 1,
+    "__typename": "Message"
+  },
+  "Message:2": {
+    "id": 2,
+    "content": "Hello",
+    "likes": 0,
+    "__typename": "Message"
+  },
+  "ROOT_QUERY": {
+    "messages": [
+      {
+        "id": "Message:1",
+        "typename": "Message"
+      },
+      {
+        "id": "Message:2",
+        "typename": "Message"
+      }
+    ]
+  }
+}
+```
+
+Wait, `ROOT_QUERY`? Yes, it has to somehow store the actual result of every executed query so next time you ask for the same thing, it matches it with the query in store and resolves right away.
+
+> You should be aware that the InMemoryCache stringifies variables of a query too, which means the same queries but with different variables are stored separately. Even the order of those variables matters.
+
+As you can see, each element in `ROOT_QUERY.message` is kind of a reference to a message record.
+
+Let's bring back our short story, a scenario.
+When Niccolo asks for all messages, the whole three part process is started, each message is saved to the store.
+When he asks for history of a conversation with Dotan, InMemoryCache starts the process again and if it sees that there is already a massage with the same unique identifier, it knows they both are the same so it merged them.
+The InMemoryCache can tell what changed and emits the new object to the UI.
+Thanks to that we no longer have the same message in two places where one has a like and other doesn't.
+
+Uff, Apollo Cache part is done. Thanks for being with us that long, I hope you didn't get bored because there's a lot ahead of us.
+
+Let's talk Apollo Link.
+
+As I mentioned it's kind of a network stack of Apollo. You execute a document with some metadata like variables or a context, Apollo Client receives it and passes it to the chain of Links.
+
+The ApolloLink is based on an Observable (not RxJS) and if you know `RxJS` you're familiar with `pipe`. Each Link is basically a function that receives a requested operation and a function that runs the next Link. Just like a pipe!
+
+```typescript
+import { ApolloLink } from 'apollo-link';
+
+const log = new ApolloLink((operation, next) => {
+  console.log('Name', operation.operationName);
+  return next(operation);
+});
+```
+
+Now when we add it in `graphql.module.ts` we see the name of each requested operation.
+
+We can even intercept the result.
+
+```typescript
+const intercept = new ApolloLink((operation, next) => {
+    return forward(operation).map((data) => {
+        // data from a previous link
+        console.log('data', data);
+        return data;
+    });
+});
+```
+
+As you can see below, by network we don't always mean making HTTP requests. It could be Http Link at the end of Links chain or WebSocket Link or even something that works on in-memory data.
+
+```typescript
+import { ApolloLink, Observable } from 'apollo-link';
+
+const inmemory = new ApolloLink(operation => {
+    return Observable(observer => {
+        // function that executes the operation and returns data
+        const result = resolveOperation(operation);
+
+        observer.next(result);
+        observer.complete();
+    });
+});
+```
+
+You can find tons of helpful Links [on npm](https://www.npmjs.com/search?q=apollo-link-) and [on Apollo Link documentation](https://www.apollographql.com/docs/link/links/community.html).
+
+We highly recommend to take a look at Angular related Links [on Apollo Angular documentation](https://www.apollographql.com/docs/angular/guides/tools-and-packages.html).
+
+### GQL Tag
+
+The `gql` template tag is what you use to define GraphQL queries in your Apollo apps. It parses your GraphQL query into the `GraphQL.js AST format` which may then be consumed by Apollo methods. Whenever Apollo is asking for a GraphQL query you will always want to wrap it in a `gql` template tag.
+
+You can embed a GraphQL document containing only fragments inside of another GraphQL document using template string interpolation. This allows you to use fragments defined in one part of your codebase inside of a query defined in a completely different file.
+
+{{{ diffStep "1.2" module="client" file="src/graphql/fragment.ts" }}}
+
+### Use Apollo service
+
+Let's create a simple service to query the chats from our just created server:
+
+{{{ diffStep "1.2" module="client" files="src/app/services" }}}
+
+We just learned how to use Apollo to attach GraphQL query results to the Angular UI.
+
+The `watchQuery` method returns a `QueryRef` object which has the `valueChanges` property that is an `Observable`.
+
+Every fetched data is stored in Apollo Client’s cache, so if some other query fetches new information about the chats, this component will update to remain consistent.
+
+It’s also possible to fetch data only once. You simply use `query` method instead of `watchQuery`. The query method of Apollo service returns an Observable too that also resolves with the same result as above.
+
+#### But what is a `QueryRef`?
+
+As you know, `query` method returns an Observable that emits a result, just once, then the observable completes. `watchQuery` works a bit different. It fetches data then stays open and listens to the Cache for updates.
+
+So why `watchQuery` can not simply expose an Observable and it serves `QueryRef` instead?
+
+Because Apollo Angular is a bridge between Apollo Client (core library) and Angular framework it has to operate on RxJS based Observables. RxJS Observable has a simple API that cannot be easily extended and it's in general a bad practice.
+
+Why we're talking about those things? Apollo Client exposes an Observable that has bunch of custom method on it. They are super useful and their purpose is to talk to Apollo through them.
+
+Since we have to turn Apollo's Observable to something that is compatible with RxJS we decided to expose an object that has all those methods and `valueChanges` property that is a regular RxJS Observable.
+
+#### Make our app pretty
+
+We will use Materials for the UI, so let's install it:
+
+    $ npm install @angular/cdk @angular/material hammerjs ng2-truncate
+
+Let's configure Material:
+
+{{{ diffStep "1.3" module="client" files="src/index.ts, src/main.ts, src/styles.scss" }}}
+
+We're now creating a `shared` module where we will define our header component where we're going to project a different content from each component:
+
+{{{ diffStep "1.3" module="client" files="src/app/shared/*" }}}
+
+Now we want to create the `chats-lister` module, with a container component called `ChatsComponent` and a couple of presentational components.
+
+{{{ diffStep "1.3" module="client" files="src/app/chats-lister/*" }}}
+
+Finally let's wire everything up to the main module:
+
+{{{ diffStep "1.3" module="client" files="src/app/app.component.ts, src/app/app.module.ts" }}}
+
+If you will try to run the frontend you will notice that several messages seems like duplicated, why does it happen?
+
+Since we use NoSQL-like structure in our backend, messages are stored as an array inside each chat so their incremental identifiers are not unique across different chats. We need to normalize them in a way that takes into account both the message id and the chat id:
+
+{{{ diffStep "1.4" module="client" }}}
+
+That way our application will work even if the backend is a NoSQL. What's even more interesting is that our application will keep working as well even when we will switch our backend to PostgreSQL.
