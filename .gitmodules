@@ -1,0 +1,6 @@
+[submodule "server"]
+	path = server
+	url = ../whatsapp-server-express
+[submodule "client"]
+	path = client
+	url = ../whatsapp-client-angularcli-material
