@@ -1,0 +1,44 @@
+## Server
+
+The GraphQL codegen library can generate any code for any language — including type definitions, data models, query builder, resolvers, ORM code, complete full stack platforms.
+You can create your own custom GraphQL codegen templates in 10 minutes, that fit exactly your needs. We will use it to generate `Typescript` typings.
+
+First, let's install `graphql-code-generator`  in our server and add it to the run scripts:
+
+    $ npm install graphql-code-generator
+
+{{{ diffStep "2.1" module="server" }}}
+
+Now let's run the generator (the server must be running in the background):
+
+    $ npm run generator
+
+Please note that the server must be started before running the generator.
+
+Those are the types created with `npm run generator`:
+
+{{{ diffStep "2.2" module="server" }}}
+
+Now let's use them:
+
+{{{ diffStep "2.3" module="server" }}}
+
+Don't worry, they will be much more useful when we will write our first mutation.
+
+## Client
+
+Let's do the same on the client:
+
+    $ npm install graphql-code-generator
+
+Please note that the server must be started before running the generator.
+
+{{{ diffStep "2.1" module="client" }}}
+
+Those are our generated types:
+
+{{{ diffStep "2.2" module="client" }}}
+
+Let's use them:
+
+{{{ diffStep "2.3" module="client" }}}
