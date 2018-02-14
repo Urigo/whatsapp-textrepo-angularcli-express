@@ -1,0 +1,59 @@
+At this point we have a module which lists all of our chats, but we still need to show a particular chat.
+We're going to implement in in this chapter.
+
+### ChatViewer module
+
+First, let's create a `ChatViewer` module:
+
+{{{ diffStep "4.1" module="client" files="src/app/app.module.ts, src/app/chat-viewer/chat-viewer.module.ts" }}}
+
+As you can see, it has already everything that we might need.
+
+### GetChat operation
+
+Components need data, so we create the `GetChat` operation and run `yarn generator`:
+
+{{{ diffStep "4.1" module="client" files="src/graphql/getChat.query.ts" }}}
+
+The query can be now implemented in `ChatsService`:
+
+{{{ diffStep "4.1" module="client" files="src/app/services/chats.service.ts" }}}
+
+Great!
+
+### Chat view
+
+Now we've got data but a user can't still access the chat view. 
+There is one place where we're able to pick the chat, it's the list:
+
+{{{ diffStep "4.1" module="client" files="src/app/chats-lister/components/chat-item/chat-item.component.ts, src/app/chats-lister/components/chats-list/chats-list.component.ts, src/app/chats-lister/containers/chats/chats.component.ts" }}}
+
+Time for a next step, an actual implementation of the chat view.
+
+{{{ diffStep "4.1" module="client" files="src/app/chat-viewer/containers/chat/chat.component.ts, src/app/chat-viewer/containers/chat/chat.component.scss" }}}
+
+The `ChatComponent` component contains:
+
+ - Toolbar with chat's name and a "go back" button
+ - List of messages sorted from oldest to newest
+ - Space to submit a new message
+
+### List of messages
+
+We now split the list of messages to the host:
+
+{{{ diffStep "4.1" module="client" files="src/app/chat-viewer/components/messages-list/messages-list.component.ts, src/app/chat-viewer/components/messages-list/messages-list.component.scss" }}}
+
+and a reused component for each message:
+
+{{{ diffStep "4.1" module="client" files="src/app/chat-viewer/components/message-item/message-item.component.ts, src/app/chat-viewer/components/message-item/message-item.component.scss" }}}
+
+As you see, we could easily decide which message comes from which user based on the `ownership` property.
+
+### Submit a new message
+
+The app shows the conversation and now we're going to focus on the last part, actually emitting a new message!
+
+{{{ diffStep "4.1" module="client" files="src/app/chat-viewer/components/new-message/new-message.component.scss, src/app/chat-viewer/components/new-message/new-message.component.ts" }}}
+
+It's not yet fully functional, we receive the message in the `ChatComponent` but we still need to send it to the server. We'll cover that in next few steps!
