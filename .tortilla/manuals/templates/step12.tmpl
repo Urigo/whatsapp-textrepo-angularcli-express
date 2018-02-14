@@ -1,0 +1,17 @@
+We still cannot create new chats or groups, so let's implement it.
+We're going to create a `ChatsCreation` module, with a `NewChat` and a `NewGroup` containers, along with several presentational components.
+We're going to make use of the selectable list directive once again, to ease selecting the users when we're creating a new group.
+You should also notice that we are looking for existing chats before creating a new one: if it already exists we're are simply redirecting to that chat instead of creating a new one (the server wouldn't allow that anyway and it will simply
+return the chat id).
+
+{{{ diffStep "8.1" module="client" files="src/graphql" }}}
+
+After creating the mutations we should run the generator to create the corresponding types:
+
+    npm run generator
+
+{{{ diffStep "8.1" module="client" files="src/app/app.module.ts, src/app/chats-creation, src/app/services" }}}
+
+Finally we should update our tests:
+
+{{{ diffStep "8.1" module="client" files="src/app/chat-viewer/containers/chat/chat.component.spec.ts" }}}
