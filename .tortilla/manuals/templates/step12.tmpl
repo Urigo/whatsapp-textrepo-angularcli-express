@@ -1,0 +1,51 @@
+We still cannot create new chats or groups, so let's implement it.
+
+We're going to create a `ChatsCreation` module, with a `NewChat` and a `NewGroup` containers, along with several presentational components.
+
+We're going to make use of the selectable list directive once again, to ease selecting the users when we're creating a new group.
+You should also notice that we are looking for existing chats before creating a new one: if it already exists we're are simply redirecting to that chat instead of creating a new one (the server wouldn't allow that anyway and it will simply
+return the chat id).
+
+{{{ diffStep "8.1" module="client" files="src/graphql/" }}}
+
+After creating the mutations we should run the generator to create the corresponding types and services:
+
+    yarn generator
+
+Let's jump straight into `ChatsService` and add few new methods:
+
+{{{ diffStep "8.1" module="client" files="src/app/services/chats.service.ts" }}}
+
+Okay, now since we got the GraphQL part ready, we're going to focus on the component.
+
+First, space to add a new group:
+
+{{{ diffStep "8.1" module="client" files="src/app/chats-creation/containers/new-group/new-group.component.ts, src/app/chats-creation/containers/new-group/new-group.component.scss" }}}
+
+Next, a new chat view:
+
+src/app/chats-creation/containers/new-chat/new-chat.component.scss, src/app/chats-creation/containers/new-chat/new-chat.component.ts
+
+{{{ diffStep "8.1" module="client" files="src/app/app.module.ts, src/app/chats-creation, src/app/services" }}}
+
+They're both missing few components:
+
+**UsersList**
+
+{{{ diffStep "8.1" module="client" files="src/app/chats-creation/components/users-list/users-list.component.ts, src/app/chats-creation/components/users-list/users-list.component.scss" }}}
+
+**UserItem**
+
+{{{ diffStep "8.1" module="client" files="src/app/chats-creation/components/user-item/user-item.component.ts, src/app/chats-creation/components/user-item/user-item.component.scss" }}}
+
+**NewGroupDetails**
+
+{{{ diffStep "8.1" module="client" files="src/app/chats-creation/components/new-group-details/new-group-details.component.ts, src/app/chats-creation/components/new-group-details/new-group-details.component.scss" }}}
+
+With all that, we can now link NewChat component with Chat container:
+
+{{{ diffStep "8.1" module="client" files="src/app/chats-lister/containers/chats/chats.component.ts, src/app/chat-viewer/containers/chat/chat.component.spec.ts" }}}
+
+Now let's wrap it all together within the `ChatsCreation` module:
+
+{{{ diffStep "8.1" module="client" files="src/app/chats-creation/chats-creation.module.ts, src/app/app.module.ts" }}}
