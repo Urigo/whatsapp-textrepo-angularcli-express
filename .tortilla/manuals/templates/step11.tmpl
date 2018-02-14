@@ -1,0 +1,30 @@
+## Client
+
+Since we're now familiar with the way mutations work, it's time to add messages and chats removal to our list of features!
+Since the most annoying part is going to be dealing with the user interface (because a multiple selection started by a press event is involved), I created an Angular directive to ease the process.
+Let's start by installing it:
+
+    $ npm install ngx-selectable-list
+
+Now let's import it:
+
+{{{ diffStep "7.1" module="client" files="^(?!package.json$).*" }}}
+
+Let's create the mutations:
+
+{{{ diffStep "7.2" module="client" files="src/graphql" }}}
+
+Now let's update our service:
+
+{{{ diffStep "7.2" module="client" files="chats.service.ts" }}}
+
+As you can see every time that we remove a message we also have to update the last message in the chats list.
+
+Finally we can wire everything up into our components:
+
+{{{ diffStep "7.2" module="client" files="src/app/chat-viewer, src/app/chats-lister, src/app/shared" }}}
+
+We also created a `ConfirmSelectionComponent` to use for content projection, since our selectable list directive will be able to listen to its events.
+The selectable list directive supports much more different use cases, for info please read the documentation.
+
+As you can see `ngx-selectable-list` takes care of most of the boilerplate, giving us the freedom to concentrate on the actual code.
