@@ -1,0 +1,49 @@
+## Server
+
+First of all you will have to install PostgreSQL on your operating system. Since there so many options (different Linux distributions, MacOS X, Windows...) I will assume that you already know how to install a software in your OS and take that part for granted.
+
+Then you will have to install a couple of packages:
+
+    npm install pg reflect-metadata typeorm
+    npm install --save-dev @types/pg
+
+We aren't going to use plain SQL, instead we will use an Object-relational mapping framework (ORM) called `TypeORM`.
+`TypeORM` takes advantage of Typescript classes and type declarations in order to infer the db structure.
+
+We will need to enable support for experimental decorators, emit type metadata for decorators and disable strict property initialization:
+
+{{{ diffStep "6.1" module="server" files="tsconfig.json" }}}
+
+The next step is to create Entities. An Entity is a class that maps to a database table. You can create a entity by defining a new class and mark it with @Entity():
+
+{{{ diffStep "6.1" module="server" files="entity" }}}
+
+Basic entities consist of columns and relations. Each entity MUST have a primary column.
+
+Each entity must be registered in your connection options:
+
+{{{ diffStep "6.1" module="server" files="ormconfig.json" }}}
+
+Since database table consist of columns your entities must consist of columns too. Each entity class property you marked with @Column will be mapped to a database table column.
+Each entity must have at least one primary column. There are several types of primary columns, but in our case `@PrimaryGeneratedColumn()` creates a primary column which value will be automatically generated with an auto-increment value.
+`@CreateDateColumn` is a special column that is automatically set to the entity's insertion date. You don't need set this column - it will be automatically set.
+For the Recipient Entity we use a composite primary key that consists of two foreign keys.
+
+The next thing to do is to create a connection with the database before firing up the web server:
+
+{{{ diffStep "6.1" module="server" files="index.ts" }}}
+
+We will also remove our fake db and replace it with some real data:
+
+{{{ diffStep "6.1" module="server" files="db.ts" }}}
+
+It's time to deal with resolvers:
+
+{{{ diffStep "6.1" module="server" files="schema/resolvers.ts" }}}
+
+`QueryBuilder` is one of the most powerful features of `TypeORM` - it allows you to build SQL queries using elegant and convenient syntax, execute them and get automatically transformed entities.
+
+You can find more informations on `TypeORM` on http://typeorm.io
+
+The best part is that you won't have to do anything on the client, everything will be completely transparent to it, even if migrated from NoSQL-like db structure to a relational one!
+Of course, you could remove the custom normalization for the messages because now they have their own table and they are no longer embedded (so they have unique IDs), but we could leave it as well in order to be free to use any kind of backend.
