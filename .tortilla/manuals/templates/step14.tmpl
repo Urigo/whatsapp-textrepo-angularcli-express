@@ -1,0 +1,96 @@
+## Authentication on server
+
+Authentication is an hot topic in the GraphQL world and there are some projects which aim at authenticating through GraphQL.
+Since often you will be required to use a specific auth framework (because of a feature you need or because of an existing authorization infrastructure) I will show you how to use a classic REST API framework within your GraphQL application.
+This approach is completely fine and in line with the official GraphQL best practices.
+We will use `Passport` for the authentication and `BasicAuth` as the auth mechanism:
+
+    yarn add bcrypt-nodejs passport passport-http
+    yarn add -D @types/bcrypt-nodejs @types/passport @types/passport-http
+
+`BasicAuth` basically involves to send username e password in an Authorization Header together with each request and is fully supported by any browser (meaning that we will be able to use `Graphiql` simply by proving username and password in the login window provided by the browser itself).
+It's the most simple auth mechanism but it's completely fine for our needs. Later we could decide to use something more complicated like `JWT`, but it's outside of the scope of this tutorial.
+
+{{{ diffStep "4.1" module="server" files="index.ts" }}}
+
+We are going to store hashes instead of plain passwords, that's why we're using `bcrypt-nodejs`.
+With `passport.use('basic-signin')` and `passport.use('basic-signup')` we define how the auth framework deals with our database (well, our JSON file for the moment).
+`app.post('/signup')` is the endpoint for creating new accounts, so we left it out of the authentication middleware (`app.use(passport.authenticate('basic-signin')`).
+What's of particular interest is that we're passing the user object to the GraphQL context.
+
+{{{ diffStep "4.1" module="server" files="schema/resolvers.ts" }}}
+
+In the resolvers we're basically making use of the user object taken from the context.
+
+## Authentication on client
+
+Let's start installing `@angular/flex-layout`, because we will use it later:
+
+    yarn add @angular/flex-layout
+
+
+First of all we need to create an `HTTP Interceptor`, which will intercept every HTTP request and will add authentication headers.
+For the moment we still don't have those headers, but we are going to store them in the `LocalStorage` later.
+We are also creating an `AuthGuard`, which we will use to stop the user from reaching unauthorized Routes.
+
+The `AuthGuard` will simply look for the presence of the `Authentication` Header, but will not guarantee that the header is authentic.
+This is no problem, because client side AuthGuards are not safe by design and the real authentication will be done server side anyway.
+AuthGuards are here just to redirect the user to the Login page.
+
+The service we are going to create will contain some auth methods we are going to use across the app.
+
+{{{ diffStep "10.1" module="client" files="src/app/login/services" }}}
+
+Now it's time to create a `SignIn`/`SignUp` component. Since we use Passport in the server we are going to make REST calls for the authentication, instead of using GraphQL.
+Since we use `Basic Auth` we will simply combine the username and the password together to create the authentication header.
+We will also store the response from the server, which will contain the user information like the ID, etc. which we are going to need later.
+
+{{{ diffStep "10.1" module="client" files="src/app/login/containers, src/app/login/login.module.ts" }}}
+
+Now it's time use the Interceptor we just created:
+
+{{{ diffStep "10.1" module="client" files="src/app/app.module.ts" }}}
+
+As well as the `AuthGuard`:
+
+{{{ diffStep "10.1" module="client" files="src/app/chat-viewer/chat-viewer.module.ts, src/app/chats-creation/chats-creation.module.ts, src/app/chats-lister/chats-lister.module.ts" }}}
+
+Last but not the least we need to fix our main service in order to not use the hardcoded user anymore. Instead we will use our Login service to read the user info from the `LocalStorage`.
+
+{{{ diffStep "10.1" module="client" files="src/app/services/chats.service.ts" }}}
+
+We also need to fix our tests:
+
+{{{ diffStep "10.1" module="client" files="src/app/chat-viewer/containers/chat/chat.component.spec.ts, src/app/chats-lister/containers/chats/chats.component.spec.ts, src/app/services/chats.service.spec.ts" }}}
+
+
+### GraphQL Server behind a firewall
+
+There's still one thing remaining. Our GraphQL Code Generator setup is broken now. That's because every made request to the server has to have proper rights and currently the codegen's request introspection query is not authenticated. In short, we need to attach an `Authorization` header.
+
+We're going to implement the following scenario:
+
+1. User runs `yarn generator`
+1. He is asked for a _username_ and a _password_
+1. Our script generates an _Authorization_ header
+1. GraphQL Code Generator get the GraphQL Schema of our server and outputs the types
+
+To achieve the goal, we need to change the way we interact with the codegen.
+Right now we use GraphQL Code Generator's CLI but the tool allows to use it programatically. So one issue solved.
+
+What about getting user's name and password part? We will use in-terminal prompt so user can type those. There's a package for that:
+
+    yarn add -D prompt
+
+Next, create a `src/codegen.ts` file and write our script there:
+
+{{{ diffStep "10.1" module="client" files="src/codegen.ts" }}}
+
+Let's take a closer look what we did there:
+
+- We asks user for a _username_ and a _password_ with `prompt`
+- Based on that we generate a header
+- We put the header in `generate` function
+- there's a `true` value as the second argument, it tells codegen to write the output to a file
+
+With all of that, whenever we run `yarn generator`, we access the GraphQL server as an authenticated user.
