@@ -4,8 +4,8 @@ First of all you will have to install PostgreSQL on your operating system. Since
 
 Then you will have to install a couple of packages:
 
-    npm install pg reflect-metadata typeorm
-    npm install --save-dev @types/pg
+    yarn add pg reflect-metadata typeorm
+    yarn add -D @types/pg
 
 We aren't going to use plain SQL, instead we will use an Object-relational mapping framework (ORM) called `TypeORM`.
 `TypeORM` takes advantage of Typescript classes and type declarations in order to infer the db structure.

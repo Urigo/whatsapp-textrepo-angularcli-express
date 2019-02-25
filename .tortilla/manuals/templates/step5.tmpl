@@ -3,8 +3,8 @@
 After the planning phase it's finally time to start writing some real code!
 We'll start with the server, so let's install a couple of packages first:
 
-    $ npm install apollo-server-express body-parser cors express graphql
-    $ npm install --save-dev @types/body-parser @types/cors @types/express @types/graphql
+    yarn add apollo-server-express body-parser cors express graphql
+    yarn add -D @types/body-parser @types/cors @types/express @types/graphql
 
 Express is a fast, unopinionated, minimalist web framework for node.
 Cross-Origin Resource Sharing (CORS) is a mechanism that uses additional HTTP headers to let a user agent gain permission to access selected resources from a server on a different origin (domain) than the site currently in use. A user agent makes a cross-origin HTTP request when it requests a resource from a different domain, protocol, or port than the one from which the current document originated.
@@ -25,37 +25,41 @@ Time to create our index:
 
 Now we want to feed our graphql server with some data. Soon we will need `moment`, so let's install it:
 
-    $ npm install moment
+    yarn add moment
 
 Now we can create a fake db:
 
 {{{ diffStep "1.2" module="server" files="db.ts" }}}
 
-Its' finally time to create our schema and our resolvers:
+Its' finally time to create our schema
 
-{{{ diffStep "1.3" module="server" }}}
+{{{ diffStep "1.3" module="server" files="schema/typeDefs.ts" }}}
+
+and our resolvers
+
+{{{ diffStep "1.3" module="server" files="schema/resolvers.ts" }}}
 
 Out basic server is already done and working. We still have no way to do any kind of mutation, but we already set up several queries to return a list of users or chats.
 In particular we can choose if we want to return all the chats (and how many messages we want to return for each chat) or if we want to return a single chat. We can also choose which and how many properties we want to return for each query.
 We can start the server by simply running:
 
-    $ npm start
+    yarn start
 
 ## Client
 
 Now we can concentrate on the client and bootstrap it using Angular-CLI.
 First you will need to install it globally with:
 
-    $ npm install -g @angular/cli
+    yarn global add @angular/cli
 
 Then we can create a new project from scratch:
 
-    $ ng new client --style scss
+    ng new client --style scss
 
 Time to install a couple of packages:
 
-    $ ng add apollo-angular
-    $ npm install --save-dev @types/graphql
+    ng add apollo-angular
+    yarn add -D @types/graphql
 
 Apollo's Schematics sets everything for us. The only thing missing is to fill the `url`.
 
@@ -332,7 +336,7 @@ Since we have to turn Apollo's Observable to something that is compatible with R
 
 We will use Materials for the UI, so let's install it:
 
-    $ npm install @angular/cdk @angular/material hammerjs ng2-truncate
+    yarn add @angular/cdk @angular/material hammerjs ng2-truncate
 
 Let's configure Material:
 

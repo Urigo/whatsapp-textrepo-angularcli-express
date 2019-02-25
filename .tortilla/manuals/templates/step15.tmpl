@@ -30,7 +30,7 @@ The `chatAdded` subscription is similar: we will publish each time that a group 
 
 In order to use WebSockets we will need to install a couple of dependencies:
 
-    $ npm install apollo-link-ws apollo-utilities subscriptions-transport-ws
+    yarn add apollo-link-ws apollo-utilities subscriptions-transport-ws
 
 First let's create the queries for the GraphQL Subscriptions:
 
@@ -38,7 +38,7 @@ First let's create the queries for the GraphQL Subscriptions:
 
 Then we need to run `graphql-code-generator` to generate the types:
 
-    $ npm run generator
+    yarn generator
 
 Now we can update the chats service to update the getChats query every time that we receive a new chat from the subscription.
 With GraphQL subscriptions your client will be alerted on push from the server and you should choose the pattern that fits your application the most:
@@ -52,10 +52,12 @@ We will do to do the same for the newMessage subscription, but this time we will
 
 {{{ diffStep "11.1" module="client" files="src/app/services/chats.service.ts" }}}
 
-We can finally configure the WebSocket in the app module. Please notice that the WebSocket has its own authentication instead of using the HttpInterceptor, in fact we use `connectionParams` to send the authorization.
+We can finally configure the WebSocket in the GraphQL Module. Please notice that the WebSocket has its own authentication instead of using the `HttpInterceptor`, in fact we use `connectionParams` to send the authorization.
 All queries will go through HTTP except the Subscriptions, which will use the WebSocket.
 
-{{{ diffStep "11.1" module="client" files="src/app/app.module.ts" }}}
+{{{ diffStep "11.1" module="client" files="src/app/graphql.module.ts" }}}
+
+We used `split` of ApolloLink to decide which path should a request get, through WebSocket or HTTP. We decided to push subscriptions over the WebSocket and the rest normally, just like before.
 
 Finally, let's fix the tests:
 
