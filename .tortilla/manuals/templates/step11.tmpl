@@ -1,46 +1,64 @@
+## Server
+
+In order to use WebSockets we don't need to install any package, it comes for free with Apollo Server 2.0.
+
+Our GraphQL server will use WebSockets only for subscriptions, while using HTTP for everything else. That means that we will have to add subscriptions on a specific path.
+We're using `connectionParams` for the authentication over WebSockets, that means that we won't be using the `Passport` framework at all. Instead we will use the `onConnect` hook to manually validate the parameters provided by the user to either validate the WebSocket connection or throw an error.
+We will also return the user object we retrieved from the db, to let the resolvers know who is the current user.
+
+{{{ diffStep "6.1" module="server" files="index.ts" }}}
+
+We will use the `PubSub` implementation from `apollo-server-express`, and publish the data using with Apollo Server.
+
+The process of setting up a GraphQL subscriptions server consist of the following steps:
+
+1. Declaring subscriptions in the GraphQL schema
+2. Setup a PubSub instance that our server will publish new events to
+3. Hook together `PubSub` event and GraphQL subscription.
+4. Setting up `ApolloServer`
+
+{{{ diffStep "6.1" module="server" files="schema/typeDefs.ts" }}}
+
+We created two subscriptions: one to notify for new chats and one to notify for new messages.
+
+{{{ diffStep "6.1" module="server" files="schema/resolvers.ts" }}}
+
+We will publish a message to the `messageAdded` subscription every time that a user sends a message, then we will filter them according to the current user (we don't want to send someone else's messages).
+The `chatAdded` subscription is similar: we will publish each time that a group gets created, but not when chats get created. This is because when a user creates a chat the chat doesn't appear to the other peer until he writes the first message. That's why we also publish when new messages get added (we first look if the other peer already gets the chat listed).
+
 ## Client
 
-Since we're now familiar with the way mutations work, it's time to add messages and chats removal to our list of features!
-Since the most annoying part is going to be dealing with the user interface (because a multiple selection started by a press event is involved), I created an Angular directive to ease the process.
+In order to use WebSockets we will need to install a couple of dependencies:
 
-Let's start by adding `ngx-selectable-list`:
+    yarn add apollo-link-ws apollo-utilities subscriptions-transport-ws
 
-    yarn add ngx-selectable-list
+First let's create the queries for the GraphQL Subscriptions:
 
-{{{ diffStep "7.1" module="client" }}}
+{{{ diffStep "11.1" module="client" files="src/graphql" }}}
 
-Because we're going to use the `libSelectableList` directive, we can replace Outputs and EventEmitters with it:
-
-{{{ diffStep "7.2" module="client" files="src/app/chats-lister/components/chat-item/chat-item.component.ts, src/app/chats-lister/components/chats-list/chats-list.component.ts, src/app/chat-viewer/components/messages-list/messages-list.component.ts" }}}
-
-Don't forget to add the `NgxSelectableListModule` to `ChatViewer` and `ChatLister` modules.
-
-We also created a `ConfirmSelectionComponent` to use for content projection, since our selectable list directive will be able to listen to its events.
-
-{{{ diffStep "7.2" module="client" files="src/app/shared/components/confirm-selection/confirm-selection.component.scss, src/app/shared/components/confirm-selection/confirm-selection.component.ts, src/app/shared/shared.module.ts" }}}
-
-Great, let's finish the component part by adding the connection between our container components and the `ChatsService`. We're going to use `removeMessages` and `removeChat` methods.
-
-{{{ diffStep "7.2" module="client" files="src/app/chat-viewer/containers/chat/chat.component.ts, src/app/chat-viewer/containers/chat/chat.component.spec.ts, src/app/chats-lister/containers/chats/chats.component.ts, src/app/chats-lister/containers/chats/chats.component.spec.ts"}}}
-
-### Connecting actions with the server
-
-The UI part is pretty much complete but we still need to implement two methods in the `ChatsService`. We're going to create mutations to remove a chat, selected messages or all of them.
-
-{{{ diffStep "7.2" module="client" files="src/graphql/removeChat.mutation.ts, src/graphql/removeMessages.mutation.ts, src/graphql/removeAllMessages.mutation.ts" }}}
-
-Once again, we run the GraphQL Code Generator to get the GQL services:
+Then we need to run `graphql-code-generator` to generate the types:
 
     yarn generator
 
-Now we can import those services, create `removeChat` and `removeMessages` methods in which we call a mutation.
+Now we can update the chats service to update the getChats query every time that we receive a new chat from the subscription.
+With GraphQL subscriptions your client will be alerted on push from the server and you should choose the pattern that fits your application the most:
 
-{{{ diffStep "7.2" module="client" files="src/app/services/chats.service.ts" }}}
+- Use it as a notification and run any logic you want when it fires, for example alerting the user or refetching data
+- Use the data sent along with the notification and merge it directly into the store (existing queries are automatically notified)
 
-It might seem like a lot but we simply just updating the store there.
+With subscribeToMore, you can easily do the latter. We will manipulate the store to add the newly created chat.
 
-### Summary
+We will do to do the same for the newMessage subscription, but this time we will have to update two different queries in the store: getChats and getChat.
 
-The selectable list directive supports much more different use cases, for info please read the documentation.
+{{{ diffStep "11.1" module="client" files="src/app/services/chats.service.ts" }}}
 
-As you can see `ngx-selectable-list` takes care of most of the boilerplate, giving us the freedom to concentrate on the actual code.
+We can finally configure the WebSocket in the GraphQL Module. Please notice that the WebSocket has its own authentication instead of using the `HttpInterceptor`, in fact we use `connectionParams` to send the authorization.
+All queries will go through HTTP except the Subscriptions, which will use the WebSocket.
+
+{{{ diffStep "11.1" module="client" files="src/app/graphql.module.ts" }}}
+
+We used `split` of ApolloLink to decide which path should a request get, through WebSocket or HTTP. We decided to push subscriptions over the WebSocket and the rest normally, just like before.
+
+Finally, let's fix the tests:
+
+{{{ diffStep "11.1" module="client" files="src/app/chat-viewer/containers/chat/chat.component.spec.ts, src/app/chats-lister/containers/chats/chats.component.spec.ts, src/app/services/chats.service.spec.ts" }}}

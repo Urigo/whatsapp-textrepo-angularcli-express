@@ -1,67 +1,46 @@
 ## Client
 
-Testing is a very important part of each application and for the sake of showing different testing techniques we are going to show how to test a presentational component, a container component and a service.
+Since we're now familiar with the way mutations work, it's time to add messages and chats removal to our list of features!
+Since the most annoying part is going to be dealing with the user interface (because a multiple selection started by a press event is involved), I created an Angular directive to ease the process.
 
-First let's start by importing `hammerjs` for the Material Gestures inside the test script.
+Let's start by adding `ngx-selectable-list`:
 
-{{{ diffStep "3.1" module="client" files="src/test.ts" }}}
+    yarn add ngx-selectable-list
 
-### Testing a Presentional Component
+{{{ diffStep "7.1" module="client" files="^(?!yarn.lock$).*" }}}
 
-Let's start with the simplest one: the presentational component.
-We are not going to inject any service and we don't need to access our backend, so things are quite simple: we just need to pass our Chat object as an Input, detect the changes and use the query selector to match the UI content to the one we passed as input:
+Because we're going to use the `libSelectableList` directive, we can replace Outputs and EventEmitters with it:
 
-{{{ diffStep "3.1" module="client" files="src/app/chats-lister/components/chat-item/chat-item.component.spec.ts" }}}
+{{{ diffStep "7.2" module="client" files="src/app/chats-lister/components/chat-item/chat-item.component.ts, src/app/chats-lister/components/chats-list/chats-list.component.ts, src/app/chat-viewer/components/messages-list/messages-list.component.ts" }}}
 
-### Testing a Service
+Don't forget to add the `NgxSelectableListModule` to `ChatViewer` and `ChatLister` modules.
 
-Testing a service is a bit more complicated because we will need to mock our backend in order to get fake results instead of having to fire up the backend each time.
+We also created a `ConfirmSelectionComponent` to use for content projection, since our selectable list directive will be able to listen to its events.
 
-We could simply simply mock the HTTP calls, which is a well known practice in the REST API world. Since we are using HTTP to retrieve the data, it would work as well with our Apollo Client setup.
+{{{ diffStep "7.2" module="client" files="src/app/shared/components/confirm-selection/confirm-selection.component.scss, src/app/shared/components/confirm-selection/confirm-selection.component.ts, src/app/shared/shared.module.ts" }}}
 
-#### Testing with Apollo Angular
+Great, let's finish the component part by adding the connection between our container components and the `ChatsService`. We're going to use `removeMessages` and `removeChat` methods.
 
-Because Apollo Angular provides its own testing utilities, let's bring them in!
+{{{ diffStep "7.2" module="client" files="src/app/chat-viewer/containers/chat/chat.component.ts, src/app/chat-viewer/containers/chat/chat.component.spec.ts, src/app/chats-lister/containers/chats/chats.component.ts, src/app/chats-lister/containers/chats/chats.component.spec.ts"}}}
 
-Although `apollo-angular` has a lot going on under the hood, the library provides multiple tools for testing that simplify those abstractions, and allows complete focus on the component logic.
+### Connecting actions with the server
 
-The `apollo-angular/testing` module exports a `ApolloTestingModule` module and `ApolloTestingController` service which simplifies the testing of Angular components by mocking calls to the GraphQL endpoint. This allows the tests to be run in isolation and provides consistent results on every run by removing the dependence on remote data.
+The UI part is pretty much complete but we still need to implement two methods in the `ChatsService`. We're going to create mutations to remove a chat, selected messages or all of them.
 
-By using this `ApolloTestingController` service, it’s possible to specify the exact results that should be returned for a certain query.
+{{{ diffStep "7.2" module="client" files="src/graphql/removeChat.mutation.ts, src/graphql/removeMessages.mutation.ts, src/graphql/removeAllMessages.mutation.ts" }}}
 
-Worth mentioning, `ApolloTestingModule` comes with a default cache but you can use your own with `APOLLO_TESTING_CACHE` token.
+Once again, we run the GraphQL Code Generator to get the GQL services:
 
-Let's show everything on an example:
+    yarn generator
 
-{{{ diffStep "3.1" module="client" files="src/app/services/chats.service.spec.ts" }}}
+Now we can import those services, create `removeChat` and `removeMessages` methods in which we call a mutation.
 
-As you can see, the API of `ApolloTestingController` is pretty similar to the `HttpTestingController`.
+{{{ diffStep "7.2" module="client" files="src/app/services/chats.service.ts" }}}
 
-There are four methods you should know.
+It might seem like a lot but we simply just updating the store there.
 
-**`expectOne()`**
-Important thing, it accepts two arguments. First is different for different use cases, the second one stays always the same, it’s a string with a description of your assertion. In case of failing assertion, the error is thrown with an error message including the given description.
+### Summary
 
-Let's explore all those possible cases `expectOne` accepts:
+The selectable list directive supports much more different use cases, for info please read the documentation.
 
-- you can match an operation by its name, simply by passing a string as a first argument.
-- by passing the whole Operation object the expectOne method compares: operation’s name, variables, document and extensions.
-- the first argument can also be a function that provides an Operation object and expect a boolean in return
-- or passing a GraphQL Document
-
-**`exceptNone()`**
-It accepts the same arguments as expectOne but it's a negation of it.
-
-**`match()`**
-Search for operations that match the given parameters, without any expectations.
-
-**`verify()`**
-Verify that no unmatched operations are outstanding. If any operations are outstanding, fail with an error message indicating which operations were not handled.
-
-If you want to learn more about testing, we got you covered, please visit ["Testing Apollo in Angular" chapter](https://www.apollographql.com/docs/angular/guides/testing.html) in Apollo documentation.
-
-### Testing a Container Component
-
-In the last example we are going to test a container component, which makes use of several services and multiple other components:
-
-{{{ diffStep "3.1" module="client" files="src/app/chats-lister/containers/chats/chats.component.spec.ts" }}}
+As you can see `ngx-selectable-list` takes care of most of the boilerplate, giving us the freedom to concentrate on the actual code.

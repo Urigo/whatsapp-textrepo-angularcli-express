@@ -1,68 +1,67 @@
-Now we can start writing code!
+## Client
 
-But like we said before, software is build in layers and instead of starting from nothing, we can use existing software with prepared structure.
+Testing is a very important part of each application and for the sake of showing different testing techniques we are going to show how to test a presentational component, a container component and a service.
 
-## Tools
+First let's start by importing `hammerjs` for the Material Gestures inside the test script.
 
-First let’s install some software that we need on our computer:
+{{{ diffStep "3.1" module="client" files="src/test.ts" }}}
 
-### Windows
+### Testing a Presentional Component
 
-The following instructions are for computers with the Windows operating system.
+Let's start with the simplest one: the presentational component.
+We are not going to inject any service and we don't need to access our backend, so things are quite simple: we just need to pass our Chat object as an Input, detect the changes and use the query selector to match the UI content to the one we passed as input:
 
-First let's start by installing node.js. You need to download an installer, by visiting:
+{{{ diffStep "3.1" module="client" files="src/app/chats-lister/components/chat-item/chat-item.component.spec.ts" }}}
 
-    https://nodejs.org/en/download/
+### Testing a Service
 
-Same, with Yarn:
+Testing a service is a bit more complicated because we will need to mock our backend in order to get fake results instead of having to fire up the backend each time.
 
-    https://yarnpkg.com/en/docs/install#windows-stable
+We could simply simply mock the HTTP calls, which is a well known practice in the REST API world. Since we are using HTTP to retrieve the data, it would work as well with our Apollo Client setup.
 
+#### Testing with Apollo Angular
 
-### Linux
+Because Apollo Angular provides its own testing utilities, let's bring them in!
 
-The following instructions are for computers with the Arch Linux operating system, so your mileage may vary.
+Although `apollo-angular` has a lot going on under the hood, the library provides multiple tools for testing that simplify those abstractions, and allows complete focus on the component logic.
 
-First let's start by installing npm and node.js, as simple as
+The `apollo-angular/testing` module exports a `ApolloTestingModule` module and `ApolloTestingController` service which simplifies the testing of Angular components by mocking calls to the GraphQL endpoint. This allows the tests to be run in isolation and provides consistent results on every run by removing the dependence on remote data.
 
-    # NodeJS
-    pacman -S nodejs npm
-    
-    # Yarn
-    pacman -S yarn
+By using this `ApolloTestingController` service, it’s possible to specify the exact results that should be returned for a certain query.
 
+Worth mentioning, `ApolloTestingModule` comes with a default cache but you can use your own with `APOLLO_TESTING_CACHE` token.
 
-### MacOS
+Let's show everything on an example:
 
-The following instructions are for computers with the MacOS operating system:
+{{{ diffStep "3.1" module="client" files="src/app/services/chats.service.spec.ts" }}}
 
-    # NodeJS
-    brew install node
-    
-    # Yarn
-    brew install yarn --without-node
+As you can see, the API of `ApolloTestingController` is pretty similar to the `HttpTestingController`.
 
+There are four methods you should know.
 
-## Packages
+**`expectOne()`**
+Important thing, it accepts two arguments. First is different for different use cases, the second one stays always the same, it’s a string with a description of your assertion. In case of failing assertion, the error is thrown with an error message including the given description.
 
-Then we will need a way to install our npm global packages on a per-user basis, instead of relying on sudo: https://github.com/sindresorhus/guides/blob/master/npm-global-without-sudo.md
+Let's explore all those possible cases `expectOne` accepts:
 
-Now it's the right moment to install a couple of global packages we will need later on:
+- you can match an operation by its name, simply by passing a string as a first argument.
+- by passing the whole Operation object the expectOne method compares: operation’s name, variables, document and extensions.
+- the first argument can also be a function that provides an Operation object and expect a boolean in return
+- or passing a GraphQL Document
 
-    yarn global add @angular/cli node-sass tortilla typescript
+**`exceptNone()`**
+It accepts the same arguments as expectOne but it's a negation of it.
 
+**`match()`**
+Search for operations that match the given parameters, without any expectations.
 
-## IDE
+**`verify()`**
+Verify that no unmatched operations are outstanding. If any operations are outstanding, fail with an error message indicating which operations were not handled.
 
-Now it's time to choose our IDE. I suggest you VSCode, it's available for free: https://code.visualstudio.com/.
-To have a look at some of the VSCode features you can have a look at the documentation: https://code.visualstudio.com/docs.
+If you want to learn more about testing, we got you covered, please visit ["Testing Apollo in Angular" chapter](https://www.apollographql.com/docs/angular/guides/testing.html) in Apollo documentation.
 
-VSCode team prepared an Interactive Playground where you can learn what the editor is cappable of and play with it. I highly recommend to check it out!
+### Testing a Container Component
 
-    Toolbar: Help > Interactive Playground
+In the last example we are going to test a container component, which makes use of several services and multiple other components:
 
-There are also many IDEs to recommend and at the end the choice is yours.
-
-## Mobile
-
-We will talk once again about scaffolding once we will introduce `Android` and `Cordova`.
+{{{ diffStep "3.1" module="client" files="src/app/chats-lister/containers/chats/chats.component.spec.ts" }}}

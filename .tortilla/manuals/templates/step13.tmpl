@@ -1,39 +1,115 @@
-## Client
+So far we've built a fully functional application, with a database and lots of cool features.
+But it we look at our codebase we feel that we could separate the GraphQL server into smaller, reusable, feature based parts.
+As our application grew, its code and schematic relationship became bigger and more complex, making the schema maintenance harder and harder to work with.
+Some old school MVC frameworks solve this issue adding layers after layer, but most of them just implement separation based technical layers: controllers, models, etc.
+There is a better approach: you should separate your GraphQL schema by modules, or features, and include everything related to a specific part of the app under a module.
+This is where `GraphQL Modules` comes into our help, providing:
+- Reusable modules: Modules are defined by their GraphQL schema (Schema first design). They're completely independent and can be shared between apps.
+- Scalable structure: Allows to manage multiple teams and features, multiple micro-services and servers.
+- Gradual growth: A clear, gradual path from a very simple and fast, single-file modules, to scalable multi-file, multi-teams, multi-repo, multi-server modules.
+- Testable architecture: A rich toolset around testing, mocking and separation.
 
-Now let's start our client in production mode:
+First things first, let's install it:
 
-    yarn start --prod
+    yarn add @graphql-modules/core @graphql-modules/sonar
 
-Now open the **Chrome Developers Tools** and, in the **Network tab**, select `Slow 3G Network` and `Disable cache`.
-Then refresh the page and look at the `DOMContentLoaded` time and at the transferred size. You'll notice that our bundle size is quite small and so the loads time.
+The first question we should ask ourselves is: how do we divide the app into modules?
 
-Now let's click on a specific chat. It will take some time to load the data and then add a new message. 
-Once again it will take some time to load the data. 
-We could also create a new chat and the result would be the same. 
-The whole app doesn't feel as snappier as the real Whatsapp on a slow 3G Network.
+First, let's tackle the most obvious ones: the `App Module` and the `Auth Module`.
 
-"That's normal, it's a web application with a remote db while Whatsapp is a native app with a local database..."
-That's just an excuse, because we can do as good as Whatsapp thanks to Apollo!
+## App Module and Auth Module
 
-Let's install `moment`, we will soon need it:
+We obviously need authentication, so we need to create a module to handle it.
+But we also need to create an "`App Module`", which allows us to import every other module. This is main module of our app.
+First, let's delete the whole `/schema` directory, we won't need it anymore.
+Instead, let's create a `/modules` directory and create `app.module.ts`:
 
-    yarn add moment
+{{{ diffStep "8.2" module="server" files="modules/app.module.ts" }}}
 
-Start by making our UI optimistic. We can predict most of the response we will get from our server, except for a few things like `id` of newly created messages. But since we don't really need that id, we can simply generate a fake one
-which will be later overridden once we get the response from the server:
+`imports` allows to import other modules (like the `Auth Module` which we are going to create soon), but it also allows us to access the `config` property which contains all the options we are going to pass to the `App Module` when we instantiate it.
+We are going to pass those options to the child modules, as configuration parameters.
 
-{{{ diffStep "9.1" module="client" files="^(?!package.json$).*" }}}
+Since we are going to move all the middleware for authentication into the `Auth Module` itself, it's time to clean up our index file:
 
-When we open a specific chat we can also preload some data from our chats list cache while waiting for the server response. We will initially be able to show only the chat name, the last message or the last few messages and a few more informations instead of the whole content from the server, but that would be more than enough to entertain the user while waiting for the server response:
+{{{ diffStep "8.2" module="server" files="^index.ts" }}}
 
-{{{ diffStep "9.2" module="client" }}}
+We also need to adjust our `GraphQL Code Generator` configuration in order to get the schema from our main `App Module`:
 
-Now let's deal with the most difficult part, chats creation. 
 
-We cannot predict the `id` of the new chat and so we cannot navigate to the chat page because it contains the chat id in the url. We could simply navigate to the "optimistic" id, but then the user wouldn't be able to reach that url if he refreshes the page or bookmarks it. That's a problem we care about. 
+{{{ diffStep "8.2" module="server" files="codegen.yml, schema.ts" }}}
 
-How to solve it? We're going to create a landing page and we will later override the url once we get the response from the server!
+Now it's finally time to create the `Auth Module`:
 
-{{{ diffStep "9.3" module="client" }}}
+{{{ diffStep "8.2" module="server" files="modules/auth/index.ts, modules/app.symbols.ts" }}}
 
-Poof, now our Whatsapp clone feels no more like a clone it has the same native feel.
+Notice the `middleware` section, where we put all our Express middlewares.
+
+Also note `providers`, where we define all our `Providers` (they're basically services) where we store all the logic.
+It gets `config` as parameter, allowing to access the Module configuration: we created a `Connection` provider out of the `connection` configuration option and the same happened for `app`.
+Once a provider gets defined it can be injected almost everywhere.
+`GraphQL Modules` features a strong encapsulation, so if you want to access another Module's provider you will need to import that Module first.
+
+{{{ diffStep "8.2" module="server" files="modules/auth/providers/auth.provider.ts" }}}
+
+Take a look at the `Auth Provider` and you will notice the `ProviderScope.Session` scope.
+That means that a new instance of the `Auth Provider` gets created for each session.
+That allows us to get rid of the GraphQL context and simply save the `currentUser` into its own class property.
+Every time we want to access the `currentUser` we simply need to access the `Auth Provider` and look at the `currentUser` property.
+This is very useful because each Module's context will be different depending on which modules it imports, thus we will need to generate per-module typings.
+Instead we preferred getting rid of the context altogether and simply use session-scoped providers instead (the default is application-scoped).
+
+{{{ diffStep "8.2" module="server" files="modules/auth/resolvers, modules/auth/schema" }}}
+
+Notice that the `Auth Module` doesn't implement any GraphQL schema except for the scalar `Date` and its resolver.
+This is because the authentication happens on the REST endpoints and not through GraphQL (yet, in a later chapter we will cover `Accounts JS`).
+Yet for simplicity we decided to put `GraphQLDateTime` into the `Auth Module` instead of creating its own.
+Ideally you would want to create a `GraphQLDateTime Module` which takes care of it and you will have to import it in all the modules which makes use of it.
+
+## User Module
+
+{{{ diffStep "8.3" module="server" files="^(?!types.d.ts$).*" }}}
+
+As you can notice we still have some middleware inside the `User Module`, because the image upload is done through a REST endpoint instead of a GraphQL one.
+This will change with a future update.
+
+Also notice how tidy the resolvers look: this is because all of our logic gone into Providers.
+
+## Chat, Message and Recipient Modules
+
+Now this is where the hard part begins, because we have to figure out how to divide the rest of our applications into Modules.
+The first and most important concept to realize is that each Module should be able to work on its own (the module itself plus all of its dependencies).
+That means that if we are going to remove all the other modules it should still keep working.
+`GraphQL Modules` has strong encapsulation (it forbids access to other modules unless dependencies are explicitly stated), which forces us into this kind of behaviour.
+This is great for team development and testability because each module can be worked and tested on its own (we could even import Modules directly from `npm`).
+On the other side, sometimes figuring out relationships between Modules can be hard and we will soon realize why.
+For this app we are going to create three more modules: `Chat Module`, `Message Module` and `Recipient Module`.
+Let's focus on the first two for the moment.
+It's obvious that the `Message Module` will have to depend on the `Chat Module`, because to create a new message you will need the chat id.
+That means that `Chat Module` cannot depend on `Message Module`, because otherwise we will have circular dependencies.
+Circular dependencies basically mean that those modules won't be able to work on their own: each one of them will require the other.
+They are basically no modules at all: it's basically like splitting the code in two different files, but you still won't be able to develop and test them separately.
+To avoid abuse of circular dependencies we recently removed that feature from `GraphQL Modules`.
+At first look it doesn't look like there is any way to avoid a dependency on `Message Module`, because of the `messages` field inside `Chat`.
+That's not a problem at all, because we are going to implement that field inside the `Message Module` itself (it depends on `Chat Module`, so it can extend it).
+Now if you think there are no more dependencies towards `Message Module` you would be wrong, because in the `chats` resolver we order the chats based on the latest message date.
+The fix is very easy: just return them in the natural order and override the `chats` resolver from the `Message Module` to order them according to messages.
+That means that if someone is going to import the `Chat Module` as standalone the chats will be returned in no particular order, while if he imports the `Message Module` the order will be according to messages.
+But that's not finished yet, because if you take a closer look at the `removeChat` mutation you will notice that it also removes all related messages.
+That's a big problem, because if we are going to override the whole mutation we will end up duplicating lots of code.
+To avoid that, we will get access to the `Chat Module` `removeChat` mutation from the `Message Module` (it's as easy as injecting its provider and calling it).
+Once called we will further expand it to also remove the related messages.
+It's done! But you could ask yourself, what's the point of a standalone `Chat Module` if we don't have messages? How can it be useful at all?
+What's misleading here is the name: a better name would be the `Group Module`.
+In fact what it does is simply creating groups of two or more users and it could be used for basically anything.
+
+{{{ diffStep "8.4" module="server" files="^(?!types.d.ts$).*" }}}
+
+Notice tha inside the `Chat Provider` we injected the `User Provider` in order to access the `currentUser`.
+
+{{{ diffStep "8.5" module="server" files="^(?!types.d.ts$).*" }}}
+
+Next is the `Recipient Module`. What does it do? It extends the `Message Module` in order to implement the infamous Whatsapp ticks (single, double and blue).
+Right now our client doesn't support this functionality, but soon we will update it in order to make use of it.
+Once again notice that the Recipient module extends both the `Chat` and the `Message` types, while also extending several mutations like `removeChat`, `addMessage` and `removeMessages`.
+
+{{{ diffStep "8.6" module="server" files="^(?!types.d.ts$).*" }}}

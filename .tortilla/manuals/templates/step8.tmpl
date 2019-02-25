@@ -1,65 +1,51 @@
-At this point we have a module which lists all of our chats, but we still need to show a particular chat.
-We're going to implement in in this chapter.
+We still cannot create new chats or groups, so let's implement it.
 
-### ChatViewer module
+We're going to create a `ChatsCreation` module, with a `NewChat` and a `NewGroup` containers, along with several presentational components.
 
-First, let's create a `ChatViewer` module:
+We're going to make use of the selectable list directive once again, to ease selecting the users when we're creating a new group.
+You should also notice that we are looking for existing chats before creating a new one: if it already exists we're are simply redirecting to that chat instead of creating a new one (the server wouldn't allow that anyway and it will simply
+return the chat id).
 
-{{{ diffStep "4.1" module="client" files="src/app/app.module.ts, src/app/chat-viewer/chat-viewer.module.ts" }}}
+{{{ diffStep "8.1" module="client" files="src/graphql/" }}}
 
-As you can see, it has already everything that we might need.
+After creating the mutations we should run the generator to create the corresponding types and services:
 
-### GetChat operation
+    yarn generator
 
-Components need data, so we create the `GetChat` operation and run `yarn generator`:
+Let's jump straight into `ChatsService` and add few new methods:
 
-{{{ diffStep "4.1" module="client" files="src/graphql/getChat.query.ts" }}}
+{{{ diffStep "8.1" module="client" files="src/app/services/chats.service.ts" }}}
 
-The query can be now implemented in `ChatsService`:
+Okay, now since we got the GraphQL part ready, we're going to focus on the component.
 
-{{{ diffStep "4.1" module="client" files="src/app/services/chats.service.ts" }}}
+First, space to add a new group:
 
-Great!
+{{{ diffStep "8.1" module="client" files="src/app/chats-creation/containers/new-group/new-group.component.ts, src/app/chats-creation/containers/new-group/new-group.component.scss" }}}
 
-### Chat view
+Next, a new chat view:
 
-Now we've got data but a user can't still access the chat view. 
-There is one place where we're able to pick the chat, it's the list:
+src/app/chats-creation/containers/new-chat/new-chat.component.scss, src/app/chats-creation/containers/new-chat/new-chat.component.ts
 
-{{{ diffStep "4.1" module="client" files="src/app/chats-lister/components/chat-item/chat-item.component.ts, src/app/chats-lister/components/chats-list/chats-list.component.ts, src/app/chats-lister/containers/chats/chats.component.ts" }}}
+{{{ diffStep "8.1" module="client" files="src/app/app.module.ts, src/app/chats-creation, src/app/services" }}}
 
-Time for a next step, an actual implementation of the chat view.
+They're both missing few components:
 
-{{{ diffStep "4.1" module="client" files="src/app/chat-viewer/containers/chat/chat.component.ts, src/app/chat-viewer/containers/chat/chat.component.scss" }}}
+**UsersList**
 
-The `ChatComponent` component contains:
+{{{ diffStep "8.1" module="client" files="src/app/chats-creation/components/users-list/users-list.component.ts, src/app/chats-creation/components/users-list/users-list.component.scss" }}}
 
- - Toolbar with chat's name and a "go back" button
- - List of messages sorted from oldest to newest
- - Space to submit a new message
+**UserItem**
 
-### List of messages
+{{{ diffStep "8.1" module="client" files="src/app/chats-creation/components/user-item/user-item.component.ts, src/app/chats-creation/components/user-item/user-item.component.scss" }}}
 
-First we'll download and a couple of images which will help us create a "bubble" effect for received messages:
+**NewGroupDetails**
 
-    $ wget https://raw.githubusercontent.com/Urigo/whatsapp-client-angularcli-material/4f4497df6187c6cf42bb01d7c516db7f9f08e32c/src/assets/chat-background.jpg src/assets
-    $ wget https://raw.githubusercontent.com/Urigo/whatsapp-client-angularcli-material/4f4497df6187c6cf42bb01d7c516db7f9f08e32c/src/assets/message-mine.png src/assets
-    $ wget https://raw.githubusercontent.com/Urigo/whatsapp-client-angularcli-material/4f4497df6187c6cf42bb01d7c516db7f9f08e32c/src/assets/message-other.png src/assets
+{{{ diffStep "8.1" module="client" files="src/app/chats-creation/components/new-group-details/new-group-details.component.ts, src/app/chats-creation/components/new-group-details/new-group-details.component.scss" }}}
 
-We'll now split the list of messages to the host:
+With all that, we can now link NewChat component with Chat container:
 
-{{{ diffStep "4.1" module="client" files="src/app/chat-viewer/components/messages-list/messages-list.component.ts, src/app/chat-viewer/components/messages-list/messages-list.component.scss" }}}
+{{{ diffStep "8.1" module="client" files="src/app/chats-lister/containers/chats/chats.component.ts, src/app/chat-viewer/containers/chat/chat.component.spec.ts" }}}
 
-and a reused component for each message:
+Now let's wrap it all together within the `ChatsCreation` module:
 
-{{{ diffStep "4.1" module="client" files="src/app/chat-viewer/components/message-item/message-item.component.ts, src/app/chat-viewer/components/message-item/message-item.component.scss" }}}
-
-As you see, we could easily decide which message comes from which user based on the `ownership` property.
-
-### Submit a new message
-
-The app shows the conversation and now we're going to focus on the last part, actually emitting a new message!
-
-{{{ diffStep "4.1" module="client" files="src/app/chat-viewer/components/new-message/new-message.component.scss, src/app/chat-viewer/components/new-message/new-message.component.ts" }}}
-
-It's not yet fully functional, we receive the message in the `ChatComponent` but we still need to send it to the server. We'll cover that in next few steps!
+{{{ diffStep "8.1" module="client" files="src/app/chats-creation/chats-creation.module.ts, src/app/app.module.ts" }}}

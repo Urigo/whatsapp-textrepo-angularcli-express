@@ -1,316 +1,109 @@
-## Code Generation
+## Client
 
-GraphQL entities are defined as static and typed, which means they can be analyzed and use as a base for generating everything.
+Did you notice that after creating a new message you'll have to refresh the page in order to see it?
 
-There are many tools related to that topic, but we're going to focus on The **GraphQL Coge Generator**.
+How to fix that?
 
-The GraphQL Coge Generator can generate any code for any language  —  including type definitions, data models, query builder, resolvers, ORM code, complete full stack platforms.
+Apollo performs two important core tasks which we covered in one of previous steps: executing queries and mutations, and caching the results.
 
-The tool is based on the concept of plugins. It has few official plugins to solve most required features. The GraphQL Code Gen allows to create your own custom codegen plugin in 10 minutes, that fit exactly your needs.
+Thanks to Apollo's store design, it's possible for the results of a query or mutation to update your UI in all the right places. In many cases it's possible for that to happen automatically, whereas in others you need to help the client out a little in doing so.
 
-### Generating types for server-side code
+There are couple of APIs to update the cache after mutation:
 
-First, let's install `graphql-code-generator`:
+- `refetchQueries` - is the most straightforward way of updating the cache. You request queries to be executed once again.
+- `update` - super flexible and allows you to make changes to the store based on mutation. Works well with Optimistic UI which we will cover later.
+- `updateQueries` - It works similar to the previous option but the API may be deprecated in the future and we recommend to stay with `update`.
 
-    yarn add -D graphql-code-generator
+If you thought about re-querying the server you would be wrong! The best solution is to use the response provided by the server to update our Apollo local cache.
 
-GraphQL Code Generator lets you setup everything by simply running the following command:
+Of course that we're going to use the `update` API!
 
-    yarn gql-gen init
+### Updating the store
 
-Question by question, it will guide you through the whole process of setting up a schema, selecting and intalling plugins, picking a destination of a generated file and a lot more.
+As you can see, the `update` option is a function that has two arguments:
 
-    What type of application are you building? Angular
-    Where is your schema? http://localhost:3000/graphql/
-    What are your operations and fragments? ./src/graphql/**/*.ts
-    Pick plugins: common, client, server
-    Where to write the output? ./src/graphql.ts
-    Do you want to generate an introspection file? n
-    What script in package.json should run the codegen? generator
+- `DataProxy` which we named `store`
+- mutation's result
 
+The `DataProxy` seems very interesting! It's a middleman between you and the cache.
 
-First, it will ask you what is the type of application you're going to build, pick "Backend".
-When it asks you for the schema, point it to `./schema/typeDefs.ts`.
-The output path should be: `./types.d.ts`
+#### How to update fragments
 
-Plugins that you want to have selected are:
+In pretty much every case, that middleman would allow to write and read data. Take for example the JavaScript `Map` object.
 
-- TypeScript Common
-- TypeScript Server
-- TypeScript Resolvers
+It has a `get` and `set` methods and both works based on a `key`.
 
-The goal is to have a config file under `codegen.yml` and an npm script called `generator`.
+In Apollo, we do have that key, it's something that was covered in the 5th step, remember? An object of type `Message` with an `id` would be stored in the cache as `Message:<id>`.
 
-> You can read more about GraphQL Code Generator [on its website](https://graphql-code-generator.com/docs/getting-started/).
+Let's call that small object a fragment, for simplicity.
 
-{{{ diffStep "2.1" module="server" }}}
+What are our _get_ and _set_ methods in Apollo's DataProxy? Simple, `readFragment` and `writeFragment`.
 
-Few things here:
+I think it's time to work on a simple example. Scenario: every message can be liked and we keep the sum of likes under the `likes` field.
 
-- `require: ts-node/register` - makes the ts-node compile TypeScript files
-- `schema` - points to a file that exports the GraphQL Schema object or a string (it also accepts an url)
-- `generates` - is an object where key is the filepath of an output
-- `generates.plugins` - tells about the plugins we want to use
-
-Let's modify the `codegen.yml` a bit and tell GraphQL Code Generator that `ID` scalar matches primitive `number` type in TypeScript.
-
-We're also going to use Mappers feature. 
-
-```yaml
-  mappers:
-    Chat: ./db#Chat
-    Message: ./db#Message
-    Recipient: ./db#Recipient
-```
-
-What it means is that every resolver that is expected to resolve Chat, Message or Recipient type of our GraphQL Schema will use an according interface from `./db` module. Why this is helpful? What if an object returned by a parent resolver has `_id` property instead of `id`, it doesn't match a GraphQL Type then. That's why we implemented mappers. In our case, everything should match by this allow us to make sure it really does.
-
-The idea behind Mappers is to map an interface to a GraphQL Type so you overwrite that default logic.
-
-> Read more about [Mappers feature](https://graphql-code-generator.com/docs/plugins/typescript-resolvers#mappers-overwrite-parents-and-resolved-values)
-
-Now let's run the generator:
-
-    yarn generator
-
-Please note that the server doesn't have to be running in background because we import schema through a file.
-
-Next, let's use the generated types:
-
-{{{ diffStep "2.3" module="server" }}}
-
-Don't worry, they will be much more useful when we will write our first mutation.
-
-### Generating types for client-side code
-
-Let's do the same on the client:
-
-    yarn add graphql-code-generator
-  
-and also to prepare everything:
-
-    yarn gql-gen init
-
-Exactly as with the server, you will need to answer few questions.
-
-First, it will ask you what is the type of application you're going to build, pick "Vanilla JS application" (there's an Angular option but we will introduce it in the next chapter).
-When it asks you for the schema, point it to our GraphQL Server `http://localhost:3000/graphql`.
-Documents are available under `./src/graphql/**/*.ts`.
-The output path should be: `./src/graphql.ts`
-
-Plugins that you want to have selected are:
-
-- TypeScript Common
-- TypeScript Client
-
-The goal again, is to have a config file under `codegen.yml` and an npm script called `generate`.
-
-Please note that in this case, the server must be started before running the generator.
-
-{{{ diffStep "2.1" module="client" }}}
-
-We saw how to use them on the server but let's see how easy it is to take advantage of them in Apollo.
-
-First thing you should know is most of the methods of Apollo service accepts generic types.
-
-#### What are Generic Types
-
-A major part of software engineering is building components that not only have well-defined and consistent APIs, but are also reusable. Components that are capable of working on the data of today as well as the data of tomorrow will give you the most flexible capabilities for building up large software systems.
-
-We like to work on an code samples so let's do some functional programming and create the `map` method that accepts a transform function and return a new result.
-
-Without generics, we would have to use a specific type or `any`:
+How to give a like?
 
 ```typescript
-function map(mapFn: (value: any) => any) {
-  return function(source: any): any {
-    return mapFn(source);
-  };
-}
-```
+const store: DataProxy = ...;
+const messageId = 256;
 
-Imagine, we want to use `map` function to pick user's id from an object:
-
-```typescript
-interface User {
-  id: number;
-}
-const me = {
-  id: 1,
-};
-
-const pickUserId = map(user => user.id);
-
-console.log(pickUserId(me)); // outputs: 1
-```
-
-Great, it works, we get the expected result but it could be done way better.
-
-What is the main issue here?
-It accepts an object of any type and get `any` in return. It's not very useful because we know it return a `number` and receive a `User` but TypeScript doesn't know that and later on, in other part of the code, we end up with no information about the result.
-
-That's where Generic Types jumps in!
-
-With generics, it could look like this:
-
-```typescript
-function map<T, R>(mapFn: (value: T) => R) {
-  return function(source: T): R {
-    return mapFn(source);
-  };
-}
-```
-
-There's... a lot! So let's break it:
-
-- `map<T, R>` - the map function accepts two generic types
-- `(mapFn: (value: T) => R)` - the only argument is a function that accepts an object of type `T` and returns value of type `R`
-- `function (source: T): R => {...}` - it's a higher order function that accepts a source of type `T` and transforms to be `R`.
-
-Back to our example, now with generic types:
-
-```typescript
-interface User {
-  id: number;
-}
-const me = {
-  id: 1,
-};
-
-const pickUserId = map<User, number>(user => user.id);
-
-console.log(pickUserId(me)); // outputs: 1
-```
-
-Our `map` and `pickUserId` function are strongly typed now so when you try to provide an object that has no `id` field or the field is a `string` you'll receive a proper information from TypeScript (and your IDE).
-
-#### Make client-side code strongly typed
-
-With all that knowledge let's use how to use those generated typed with `Apollo` service:
-
-{{{ diffStep "2.3" module="client" }}}
-
-As you can probably tell by now, methods like `watchQuery` and `mutate` (and others) accepts two generic types, first one describes the result and the second one the variables.
-
-```typescript
-export class ChatService {
-  constructor(private apollo: Apollo) {}
-
-  getChat(chatId: string, amount: number): GetChat.Chat {
-    return this.apollo
-      .watchQuery<GetChat.Query, GetChat.Variables>({
-        query: getChatQuery,
-        variables: {
-          chatId,
-          amount,
-        },
-      })
-      .pipe(map(result => result.data.chat));
+const fragment = gql`
+  fragment M on Message {
+    likes
   }
-}
-```
+`;
+const fragmentId = `Message:${messageId}`;
 
-Few things here.
+const message = store.readFragment({
+  fragment,
+  id: fragmentId
+});
 
-- An object of `GetChat.Query` shape lives under the `result.data` because `watchQuery` returns an object of type `ApolloQueryResult<T>` where `T` is our `GetChat.Query`.
-
-```typescript
-export type ApolloQueryResult<T> = {
-  data: T;
-  // ... other fields
-};
-```
-
-You get the same result with Mutation or Subscription.
-
-- Thanks to the second argument and `GetChat.Variables` we as well as TypeScript (and an IDE) know that `chatId` is a string and `amount` accepts only a number. Whenever we try to pass a value of different kind an Error will pop out.
-
-### Take full advantage of Codegen and generate ready to use Services!
-
-I've got a fantasctic news, you don't have to manually provide those generated types to each type Apollo service is used. Because GraphQL Documents are statically analyzable, we prepared a codegen template specific for Apollo Angular users.
-
-First, let's install `graphql-codegen-typescript-apollo-angular` with the Apollo Angular plugin and update the list of plugins in `codegen.yml`
-
-    yarn add -D graphql-codegen-typescript-apollo-angular
-
-{{{ diffStep "2.4" module="client" file="package.json" }}}
-
-Then you need to add `typescript-apollo-angular` next to other plugins in `codegen.yml`.
-
-The Apollo Angular template generates a ready to use in your component, strongly typed Angular services, for every defined query, mutation or subscription.
-
-It's possible thanks to the new API of Apollo Angular. More on that in ["Query, Mutation, Subscription services"](http://apollographql.com/docs/angular/basics/services.html?_ga=2.227615197.1327014552.1538988114-793224955.1532981447) chapter of the documentation.
-
-Given an example:
-
-```graphql
-query GetChats($amount: Int) {
-  chats {
-    ...ChatWithoutMessages
-    messages(amount: $amount) {
-      ...Message
-    }
+store.writeFragment({
+  fragment,
+  id: fragmentId,
+  data: {
+    likes: message.likes + 1
   }
-}
+});
 ```
 
-The Apollo Angular template, after you run `yarn generate`, outputs a service called `GetChatsGQL`:
+What just happened?!
 
-```typescript
-import { GetChatsGQL, GetChats } from '../graphql';
+At first, it might seem weird to talk to the store like that but you will see that it makes a lot of sense!
 
-export class AppComponent {
-  constructor(private getChatsGQL: GetChatsGQL) {}
+ - `messageId` - defined the actual id of our message
+ - `fragment` - it's a document that tells Apollo what fields we want to read and write
+ - `fragmentId` - an unique key under which the fragment is stored (we covered that in 5th step)
+ - `readFragment` - reads the fragment in the store and returns the result in exact same shape as requested
+ - `writeFragment` - accepts same properties as `readFragment` but also the `data` property
 
-  getChats(): GetChats.Chats[] {
-    return this.getChatsGQL
-      .watch({
-        amount: 10,
-      })
-      .valueChanges.pipe(map(result => result.data.chats));
-  }
-}
-```
+### How to update queries
 
-> Remember, every operation should has an unique name.
+Similar as in case of fragments, we update queries with `readQuery` and `writeQuery`.
 
-It might look a bit different then what you have already learnt but we promise, the API is even easier.
+We won't cover the same thing again but let's just look at the API based on our WhatsApp clone example:
 
-But first, let's dive into how those services look like under the hood.
+{{{ diffStep "6.1" module="client" }}}
 
-```typescript
-import { Query } from 'apollo-angular';
+As you can see we used the `document` property of a generated GQL service. It contains the actual query that is used in every `watch` or `fetch` calls of the GQL service. It's a part of the open API.
 
-@Injectable({
-  providedIn: 'root',
-})
-export class GetChatsGQL extends Query<GetChats.Query, GetChats.Variables> {
-  document = gql`
-    here goes the document
-  `;
-}
-```
+### Keep on mind
 
-Okay, seems easy but what is the `Query` class, you might ask!
+It's very important to know few things:
 
-Apollo Angular exposes three classes for three kinds of the GraphQL operation: `Query`, `Mutation` and `Subscription`. Each of them has a different API.
+- update function have to run synchronously
+- the query should always match the query you want to update (even order of fields or variables matters)
+- by updating a query you also update every normalized data it has (we called them fragments in few secions above)
 
-- `Query` has `fetch` and `watch`. First one behave like `Apollo.query()`, second one like `Apollo.watchQuery()`
-- `Mutation` has `mutate`
-- `Subscription` has `subscribe`
+When Apollo runs the `update` function? In two cases, rigth after the mutation happens but only if it has an optimistic response defined, and also once we get the response from the server.
 
-Because the `document` is already defined in a class, they all accept two arguments (Subscription has third one). First argument defines variables, second shapes the options. Thats why we used `this.getChatsGQL.watch({ amount: 10 })`.
+> Optimistic Resposne is something we will cover in next steps but so you know, Apollo allows to optimistically update the store with a temporary data that is being replaced right after we get the response from the server.
 
-Let's stop talking about the API itself and see what benefits it brings us:
+But why the update function has to run synchornously? It's by design and not so interesting. We won't cover it in-depth here but in short, when Apollo runs the function it switches the store with the new, empty one, to record every change that's made by the function to later merge it with the original store. If you still have questions, please let us know so we can cover that thing in-depth as a blog post or even a separate chapter in that tutorial.
 
-- **Less code to write** - no need to create a network call, no need to create Typescript typings, no need to create a dedicated Angular service
-- **Strongly typed out of the box — all** types are being generated, no need to write any Typescript definitions and struggle to keep them updated
-- _More pleasent API_ to work with
-- **Full developer experience of tools and IDEs**  —  development time, autocomplete and error checking, not only across your frontend app but also with your API teams!
-- **Tree-shakable** thanks to Angular 6
+### Summary
 
-Most IDEs with the GraphQL support (built-in or thanks to extensions) fully handles `.graphql` files and helps you with features like auto-completion, validation but they strugle with `gql` tag. To fully enjoy GraphQL we highly recommend to use static `.graphql` files.
+Now you won't need to reload the page in order to see the new message. What's even more interesting is that the message you wrote would also be shown as the last message in the chats list, just hit the back button in the top-left corner to find out!
 
-With all that knowledge, let's use GQL services in our application:
-
-{{{ diffStep "2.4" module="client" files="src/app/services/chats.service.ts" }}}
+This is because we updated our store for both the `GetChat` and the `GetChats` query.
