@@ -1,0 +1,16 @@
+We created a module which lists all of our chats, but we still need to show a particular chat.
+Let's create the `chat-viewer` module! We're going to create a container component called `ChatComponent` and a couple of presentational components.
+
+{{{ diffStep "4.1" module="client" }}}
+
+It's time to generate our types:
+
+    $ npm run generator
+
+And use them:
+
+{{{ diffStep "4.2" module="client" files="^(?!src/types.d.ts$).*" }}}
+
+We will also create some more tests for the newly created Chat container component:
+
+{{{ diffStep "4.3" module="client" }}}

@@ -1,0 +1,132 @@
+## Server
+
+After the planning phase it's finally time to start writing some real code!
+We'll start with the server, so let's install a couple of packages first:
+
+    $ npm install apollo-server-express body-parser cors express graphql graphql-tools
+    $ npm install --save-dev @types/body-parser @types/cors @types/express @types/graphql
+
+Express is a fast, unopinionated, minimalist web framework for node.
+Cross-Origin Resource Sharing (CORS) is a mechanism that uses additional HTTP headers to let a user agent gain permission to access selected resources from a server on a different origin (domain) than the site currently in use. A user agent makes a cross-origin HTTP request when it requests a resource from a different domain, protocol, or port than the one from which the current document originated.
+We will need CORS because Webpack's development server used in the client will make use of a different port than the Express server, thus configuring a different origin.
+GraphQL is a query language for APIs and a runtime for fulfilling those queries with your existing data. GraphQL provides a complete and understandable description of the data in your API, gives clients the power to ask for exactly what they need and nothing more, makes it easier to evolve APIs over time, and enables powerful developer tools.
+Apollo Server is a community-maintained open-source GraphQL server. It works with pretty much all Node.js HTTP server frameworks. Apollo Server works with any GraphQL schema built with GraphQL.js or with a convenience library such as graphql-tools.
+
+The GraphQL query language is basically about selecting fields on objects. Because the shape of a GraphQL query closely matches the result, you can predict what the query will return without knowing that much about the server. But it's useful to have an exact description of the data we can ask for - what fields can we select? What kinds of objects might they return? What fields are available on those sub-objects? That's where the schema comes in.
+Every GraphQL service defines a set of types which completely describe the set of possible data you can query on that service. Then, when queries come in, they are validated and executed against that schema.
+
+For the moment let's create some empty schemas and resolvers:
+
+{{{ diffStep "1.1" module="server" files="schema/*" }}}
+
+Time to create our index:
+
+{{{ diffStep "1.1" module="server" files="^index.ts" }}}
+
+Now we want to feed our graphql server with some data. Soon we will need `moment`, so let's install it:
+
+    $ npm install moment
+
+Now we can create a fake db:
+
+{{{ diffStep "1.2" module="server" files="db.ts" }}}
+
+Its' finally time to create our schema and our resolvers:
+
+{{{ diffStep "1.3" module="server" }}}
+
+Out basic server is already done and working. We still have no way to do any kind of mutation, but we already set up several queries to return a list of users or chats.
+In particular we can choose if we want to return all the chats (and how many messages we want to return for each chat) or if we want to return a single chat. We can also choose which and how many properties we want to return for each query.
+We can start the server by simply running:
+
+    $ npm start
+
+## Client
+
+Now we can concentrate on the client and bootstrap it using angular-cli.
+First you will need to install angular-cli globally with:
+
+    $ npm install -g @angular/cli
+
+Then we can create a new project from scratch:
+
+    $ ng new client --style scss
+
+Time to install a couple of packages:
+
+    $ npm install apollo-angular apollo-angular-link-http apollo-cache-inmemory apollo-client apollo-link graphql graphql-tag
+    $ npm install --save-dev @types/graphql
+
+We will also need to add `esnext.asynciterable` to the libs:
+
+{{{ diffStep "1.1" module="client" files="tsconfig.json" }}}
+
+We also added the `downlevelIteration` option which is required to make sure that everything will be transpiled to ES5.
+
+To get started using Apollo with Angular, we need to import two NgModules, `ApolloModule` and `HttpLinkModule`.
+
+- `ApolloModule` is the center of using GraphQL in your app! It includes all needed services that allows to use ApolloClient’s features.
+- `HttpLinkModule` makes it easy to fetch data in Angular.
+
+`HttpLinkModule` is optional, you can replace it with any other Link.
+Its biggest advantage of all is that it uses `HttpClient` internally so it’s possible to use it in `NativeScript` or in combination with any other `HttpClient` provider. By using `HttpLinkModule` you get Server-Side Rendering for free, without any additional work.
+
+To get started, inject `Apollo` and `HttpLink` services and then create a client:
+
+{{{ diffStep "1.1" module="client" files="app.module.ts" }}}
+
+We're using the `InMemory` cache, but there are several options like `Redux`, `Hermes`, `ngrx`...
+
+The `gql` template tag is what you use to define GraphQL queries in your Apollo apps. It parses your GraphQL query into the `GraphQL.js AST format` which may then be consumed by Apollo methods. Whenever Apollo is asking for a GraphQL query you will always want to wrap it in a `gql` template tag.
+
+You can embed a GraphQL document containing only fragments inside of another GraphQL document using template string interpolation. This allows you to use fragments defined in one part of your codebase inside of a query defined in a completely different file.
+
+{{{ diffStep "1.2" module="client" files="src/graphql" }}}
+
+Let's create a simple service to query the chats from our just created server:
+
+{{{ diffStep "1.2" module="client" files="src/app/services" }}}
+
+We just learned how to use Apollo to attach GraphQL query results to the Angular UI. The `watchQuery` method returns a `QueryRef` object which has the `valueChanges` property that is an Observable.
+That information is stored in Apollo Client’s global cache, so if some other query fetches new information about the chats, this component will update to remain consistent.
+It’s also possible to fetch data only once. The query method of Apollo service returns an Observable that also resolves with the same result as above.
+
+#### But what is a `QueryRef`?
+
+As you know, `Apollo.query` method returns an Observable that emits a result, just once, but `Apollo.watchQuery` also does the same except it passes multiple results.
+So why `Apollo.watchQuery` can not expose an Observable?
+
+In `ApolloClient.watchQuery` returns an Observable, but not a standard one, it contains many useful methods (like `refetch()`) to manipulate the watched query.
+A normal Observable, has only one method, `subscribe()`.
+
+The API of `QueryRef` is very simple. It has the same methods as the Apollo’s Observable we talked about. To subscribe to query results you have to access `valueChanges` property which exposes a clean RxJS Observable.
+
+We will use Materials for the UI, so let's install it:
+
+    $ npm install @angular/cdk @angular/material hammerjs ng2-truncate
+
+Let's configure Material:
+
+{{{ diffStep "1.3" module="client" files="src/index.ts, src/main.ts, src/styles.scss" }}}
+
+We're now creating a `shared` module where we will define our header component where we're going to project a different content from each component:
+
+{{{ diffStep "1.3" module="client" files="src/app/shared/*" }}}
+
+Now we want to create the `chats-lister` module, with a container component called `ChatsComponent` and a couple of presentational components.
+
+{{{ diffStep "1.3" module="client" files="src/app/chats-lister/*" }}}
+
+Finally let's wire everything up to the main module:
+
+{{{ diffStep "1.3" module="client" files="src/app/app.component.ts, src/app/app.module.ts" }}}
+
+If you will try to run the frontend you will notice that several messages seems like duplicated, why does it happen?
+
+`apollo-cache-inmemory` is the default cache implementation for Apollo Client 2.0. `InMemoryCache` is a normalized data store that supports all of Apollo Client 1.0's features without the dependency on Redux.
+The `InMemoryCache` normalizes your data before saving it to the store by splitting the result into individual objects, creating a unique identifier for each object, and storing those objects in a flattened data structure. By default, `InMemoryCache` will attempt to use the commonly found primary keys of `id` and `_id` for the unique identifier if they exist along with `__typename` on an object.
+Since we use NoSQL-like structure in our backend, messages are stored as an array inside each chat so their incremental identifiers are not unique across different chats. We need to normalize them in a way that takes into account both the message id and the chat id:
+
+{{{ diffStep "1.4" module="client" }}}
+
+That way our application will work even if the backend is a NoSQL. What's even more interesting is that our application will keep working as well even when we will switch our backend to PostgreSQL.
