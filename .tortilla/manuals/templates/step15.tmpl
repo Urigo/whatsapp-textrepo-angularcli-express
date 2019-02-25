@@ -1,8 +1,6 @@
 ## Server
 
-In order to use WebSockets we will need to install a couple of packages:
-
-    npm install graphql-subscriptions subscriptions-transport-ws
+In order to use WebSockets we don't need to install any package, it comes for free with Apollo Server 2.0.
 
 Our GraphQL server will use WebSockets only for subscriptions, while using HTTP for everything else. That means that we will have to add subscriptions on a specific path.
 We're using `connectionParams` for the authentication over WebSockets, that means that we won't be using the `Passport` framework at all. Instead we will use the `onConnect` hook to manually validate the parameters provided by the user to either validate the WebSocket connection or throw an error.
@@ -10,14 +8,14 @@ We will also return the user object we retrieved from the db, to let the resolve
 
 {{{ diffStep "5.1" module="server" files="index.ts" }}}
 
-We will use the `PubSub` implementation from `graphql-subscriptions`, and we will connect it to `subscribe` executor of `graphql`, and publish the data using `subscriptions-transport-ws` (a WebSocket server and client library for GraphQL that can be used directly in a JavaScript app or wired up to a fully-featured GraphQL client like Apollo).
+We will use the `PubSub` implementation from `apollo-server-express`, and publish the data using with Apollo Server.
 
 The process of setting up a GraphQL subscriptions server consist of the following steps:
 
 1. Declaring subscriptions in the GraphQL schema
 2. Setup a PubSub instance that our server will publish new events to
 3. Hook together `PubSub` event and GraphQL subscription.
-4. Setting up `SubscriptionsServer`, a transport between the server and the clients
+4. Setting up `ApolloServer`
 
 {{{ diffStep "5.1" module="server" files="schema/typeDefs.ts" }}}
 
