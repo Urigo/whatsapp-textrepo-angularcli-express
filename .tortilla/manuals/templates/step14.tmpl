@@ -105,4 +105,8 @@ Let's take a closer look what we did there:
 - We put the header in `schema` option
 - there's a `true` value as the second argument, it tells codegen to write the output to a file
 
+Finally we need to change our `generator` script in `package.json` to `"ts-node src/codegen.ts"` and to tweak a couple of configs:
+
+{{{ diffStep "10.1" module="client" files="tsconfig.json, src/tsconfig.app.json" }}}
+
 With all of that, whenever we run `yarn generator`, we access the GraphQL server as an authenticated user.

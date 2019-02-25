@@ -12,13 +12,22 @@ The tool is based on the concept of plugins. It has few official plugins to solv
 
 First, let's install `graphql-code-generator`:
 
-    yarn add graphql-code-generator
+    yarn add -D graphql-code-generator
 
 GraphQL Code Generator lets you setup everything by simply running the following command:
 
     yarn gql-gen init
 
 Question by question, it will guide you through the whole process of setting up a schema, selecting and intalling plugins, picking a destination of a generated file and a lot more.
+
+    What type of application are you building? Angular
+    Where is your schema? http://localhost:3000/graphql/
+    What are your operations and fragments? ./src/graphql/**/*.ts
+    Pick plugins: common, client, server
+    Where to write the output? ./src/graphql.ts
+    Do you want to generate an introspection file? n
+    What script in package.json should run the codegen? generator
+
 
 First, it will ask you what is the type of application you're going to build, pick "Backend".
 When it asks you for the schema, point it to `./schema/typeDefs.ts`.
