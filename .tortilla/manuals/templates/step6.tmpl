@@ -43,6 +43,23 @@ Few things here:
 - `generates` - is an object where key is the filepath of an output
 - `generates.plugins` - tells about the plugins we want to use
 
+Let's modify the `codegen.yml` a bit and tell GraphQL Code Generator that `ID` scalar matches primitive `number` type in TypeScript.
+
+We're also going to use Mappers feature. 
+
+```yaml
+  mappers:
+    Chat: ./db#Chat
+    Message: ./db#Message
+    Recipient: ./db#Recipient
+```
+
+What it means is that every resolver that is expected to resolve Chat, Message or Recipient type of our GraphQL Schema will use an according interface from `./db` module. Why this is helpful? What if an object returned by a parent resolver has `_id` property instead of `id`, it doesn't match a GraphQL Type then. That's why we implemented mappers. In our case, everything should match by this allow us to make sure it really does.
+
+The idea behind Mappers is to map an interface to a GraphQL Type so you overwrite that default logic.
+
+> Read more about [Mappers feature](https://graphql-code-generator.com/docs/plugins/typescript-resolvers#mappers-overwrite-parents-and-resolved-values)
+
 Now let's run the generator:
 
     yarn generator

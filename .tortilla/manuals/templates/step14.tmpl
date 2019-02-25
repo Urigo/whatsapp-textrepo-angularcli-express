@@ -18,6 +18,18 @@ With `passport.use('basic-signin')` and `passport.use('basic-signup')` we define
 `app.post('/signup')` is the endpoint for creating new accounts, so we left it out of the authentication middleware (`app.use(passport.authenticate('basic-signin')`).
 What's of particular interest is that we're passing the user object to the GraphQL context.
 
+{{{ diffStep "4.1" module="server" files="schema/types.ts" }}}
+{{{ diffStep "4.1" module="server" files="codegen.yml" }}}
+
+As you can see, we defined the `contextType` and `AppContext`. Let me explain it.
+
+```yaml
+# contextType: ./relative/path/to/module#Interface
+contextType: ./schema/types#AppContext
+```
+
+It means we want to use `AppContext` interface from `./schema/types.ts` module as a Context of every resolver. This is very helpful to not repeat the same interface over and over again, in each resolver function. The path should be relative to the output file.
+
 {{{ diffStep "4.1" module="server" files="schema/resolvers.ts" }}}
 
 In the resolvers we're basically making use of the user object taken from the context.
