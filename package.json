@@ -1,5 +1,7 @@
 {
   "name": "whatsapp-textrepo-angularcli-express",
   "description": "A newly created Tortilla project",
-  "private": true
+  "private": true,
+  "repository": "https://github.com/Urigo/whatsapp-textrepo-angularcli-express",
+  "author": "Uri Goldshtein <uri.goldshtein@gmail.com>"
 }

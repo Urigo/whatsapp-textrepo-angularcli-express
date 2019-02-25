@@ -40,7 +40,13 @@ The `ChatComponent` component contains:
 
 ### List of messages
 
-We now split the list of messages to the host:
+First we'll download and a couple of images which will help us create a "bubble" effect for received messages:
+
+    $ wget https://raw.githubusercontent.com/Urigo/whatsapp-client-angularcli-material/4f4497df6187c6cf42bb01d7c516db7f9f08e32c/src/assets/chat-background.jpg src/assets
+    $ wget https://raw.githubusercontent.com/Urigo/whatsapp-client-angularcli-material/4f4497df6187c6cf42bb01d7c516db7f9f08e32c/src/assets/message-mine.png src/assets
+    $ wget https://raw.githubusercontent.com/Urigo/whatsapp-client-angularcli-material/4f4497df6187c6cf42bb01d7c516db7f9f08e32c/src/assets/message-other.png src/assets
+
+We'll now split the list of messages to the host:
 
 {{{ diffStep "4.1" module="client" files="src/app/chat-viewer/components/messages-list/messages-list.component.ts, src/app/chat-viewer/components/messages-list/messages-list.component.scss" }}}
 

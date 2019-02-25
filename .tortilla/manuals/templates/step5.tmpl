@@ -346,7 +346,11 @@ We're now creating a `shared` module where we will define our header component w
 
 {{{ diffStep "1.3" module="client" files="src/app/shared/*" }}}
 
-Now we want to create the `chats-lister` module, with a container component called `ChatsComponent` and a couple of presentational components.
+Now we want to create the `chats-lister` module, with a container component called `ChatsComponent` and a couple of presentational components. Each and every chat item would be presented with a default profile picture as a placeholder, so before we proceed we will have to download it to the `src/assets` directory:
+
+    $ wget https://raw.githubusercontent.com/Urigo/whatsapp-client-angularcli-material/4f4497df6187c6cf42bb01d7c516db7f9f08e32c/src/assets/default-profile-pic.jpg src/assets
+
+And now we can proceed to creating the relevant components and their style sheets:
 
 {{{ diffStep "1.3" module="client" files="src/app/chats-lister/*" }}}
 

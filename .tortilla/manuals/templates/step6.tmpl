@@ -6,24 +6,42 @@ There are many tools related to that topic, but we're going to focus on The **Gr
 
 The GraphQL Coge Generator can generate any code for any language  —  including type definitions, data models, query builder, resolvers, ORM code, complete full stack platforms.
 
-The tool is based on the concept of templates. It has few official templates to solve most required features. The GraphQL Code Gen allows to create your own custom codegen templates in 10 minutes, that fit exactly your needs.
-
-We will use TypeScript template to generate typings.
+The tool is based on the concept of plugins. It has few official plugins to solve most required features. The GraphQL Code Gen allows to create your own custom codegen plugin in 10 minutes, that fit exactly your needs.
 
 ### Generating types for server-side code
 
-First, let's install `graphql-code-generator` with the TypeScript template and add it to the run scripts:
+First, let's install `graphql-code-generator`:
 
-    yarn add graphql-code-generator graphql-codegen-typescript-template
+    yarn add graphql-code-generator
+
+GraphQL Code Generator lets you setup everything by simply running the following command:
+
+    yarn gql-gen init
+
+Question by question, it will guide you through the whole process of setting up a schema, selecting and intalling plugins, picking a destination of a generated file and a lot more.
+
+First, it will ask you what is the type of application you're going to build, pick "Backend".
+When it asks you for the schema, point it to `./schema/typeDefs.ts`.
+The output path should be: `./types.d.ts`
+
+Plugins that you want to have selected are:
+
+- TypeScript Common
+- TypeScript Server
+- TypeScript Resolvers
+
+The goal is to have a config file under `codegen.yml` and an npm script called `generator`.
+
+> You can read more about GraphQL Code Generator [on its website](https://graphql-code-generator.com/docs/getting-started/).
 
 {{{ diffStep "2.1" module="server" }}}
 
 Few things here:
 
-- `--require ts-node/register` - makes the ts-node compile TypeScript files
-- `--schema` - points to a file that exports the GraphQL Schema object or a string (it also accepts an url)
-- `--template` - tells about the template we want to use
-- `--out` - the location of a generated file
+- `require: ts-node/register` - makes the ts-node compile TypeScript files
+- `schema` - points to a file that exports the GraphQL Schema object or a string (it also accepts an url)
+- `generates` - is an object where key is the filepath of an output
+- `generates.plugins` - tells about the plugins we want to use
 
 Now let's run the generator:
 
@@ -41,7 +59,25 @@ Don't worry, they will be much more useful when we will write our first mutation
 
 Let's do the same on the client:
 
-    yarn add graphql-code-generator graphql-codegen-typescript-template
+    yarn add graphql-code-generator
+  
+and also to prepare everything:
+
+    yarn gql-gen init
+
+Exactly as with the server, you will need to answer few questions.
+
+First, it will ask you what is the type of application you're going to build, pick "Vanilla JS application" (there's an Angular option but we will introduce it in the next chapter).
+When it asks you for the schema, point it to our GraphQL Server `http://localhost:3000/graphql`.
+Documents are available under `./src/graphql/**/*.ts`.
+The output path should be: `./src/graphql.ts`
+
+Plugins that you want to have selected are:
+
+- TypeScript Common
+- TypeScript Client
+
+The goal again, is to have a config file under `codegen.yml` and an npm script called `generate`.
 
 Please note that in this case, the server must be started before running the generator.
 
@@ -167,11 +203,13 @@ You get the same result with Mutation or Subscription.
 
 I've got a fantasctic news, you don't have to manually provide those generated types to each type Apollo service is used. Because GraphQL Documents are statically analyzable, we prepared a codegen template specific for Apollo Angular users.
 
-First, let's install `graphql-codegen-apollo-angular` with the Apollo Angular templatea and update the template param of `generator` script
+First, let's install `graphql-codegen-typescript-apollo-angular` with the Apollo Angular plugin and update the list of plugins in `codegen.yml`
 
-    yarn add graphql-code-generator graphql-codegen-typescript-template
+    yarn add -D graphql-codegen-typescript-apollo-angular
 
 {{{ diffStep "2.4" module="client" file="package.json" }}}
+
+Then you need to add `typescript-apollo-angular` next to other plugins in `codegen.yml`.
 
 The Apollo Angular template generates a ready to use in your component, strongly typed Angular services, for every defined query, mutation or subscription.
 
